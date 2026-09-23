@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: fincore
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:fincore}
+    username: ${DB_USER:fincore}
+    password: ${DB_PASSWORD:fincore}
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+server:
+  port: ${SERVER_PORT:8080}
+
+fincore:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:change-me-in-env-this-is-a-dev-only-default-secret-value}
+      access-token-ttl-minutes: ${JWT_ACCESS_TTL_MIN:15}
+      refresh-token-ttl-days: ${JWT_REFRESH_TTL_DAYS:30}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    com.fincore: INFO
