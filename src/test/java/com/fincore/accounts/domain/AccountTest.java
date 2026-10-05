@@ -37,6 +37,32 @@ class AccountTest {
     }
 
     @Test
+    void applyDeltaUpdatesBalance() {
+        Account account = new Account(UUID.randomUUID(), "Cuenta", AccountType.BANK, Money.of("100.00", "EUR"));
+
+        account.applyDelta(Money.of("-30.50", "EUR"));
+
+        assertThat(account.balance()).isEqualTo(Money.of("69.50", "EUR"));
+    }
+
+    @Test
+    void applyDeltaRejectsOtherCurrency() {
+        Account account = new Account(UUID.randomUUID(), "Cuenta", AccountType.BANK, Money.of("100.00", "EUR"));
+
+        assertThatThrownBy(() -> account.applyDelta(Money.of("10.00", "USD")))
+                .isInstanceOf(com.fincore.shared.money.CurrencyMismatchException.class);
+    }
+
+    @Test
+    void applyDeltaRejectsNonActiveAccount() {
+        Account account = new Account(UUID.randomUUID(), "Cuenta", AccountType.BANK, Money.of("100.00", "EUR"));
+        account.changeStatus(AccountStatus.ARCHIVED);
+
+        assertThatThrownBy(() -> account.applyDelta(Money.of("10.00", "EUR")))
+                .isInstanceOf(AccountNotActiveException.class);
+    }
+
+    @Test
     void rejectsTransitionOutOfClosed() {
         Account account = new Account(UUID.randomUUID(), "Cuenta", AccountType.BANK, Money.zero(java.util.Currency.getInstance("EUR")));
         account.changeStatus(AccountStatus.CLOSED);
