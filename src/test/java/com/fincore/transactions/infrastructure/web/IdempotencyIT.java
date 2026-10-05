@@ -5,6 +5,7 @@ import com.fincore.accounts.domain.AccountType;
 import com.fincore.accounts.infrastructure.web.dto.CreateAccountRequest;
 import com.fincore.transactions.domain.TransactionType;
 import com.fincore.transactions.infrastructure.web.dto.CreateTransactionRequest;
+import com.fincore.transactions.infrastructure.web.dto.CreateTransferRequest;
 import com.fincore.users.domain.AppUser;
 import com.fincore.users.infrastructure.persistence.AppUserJpaRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -153,6 +154,47 @@ class IdempotencyIT {
     }
 
     @Test
+    void repeatedTransferWithSameKeyMovesMoneyOnlyOnce() throws Exception {
+        UUID from = createAccount(ownerId, "500.00");
+        UUID to = createAccount(ownerId, "0.00");
+        String key = UUID.randomUUID().toString();
+
+        MockHttpServletResponse first = postTransfer(from, to, "100.00", key).andReturn().getResponse();
+        MockHttpServletResponse second = postTransfer(from, to, "100.00", key).andReturn().getResponse();
+
+        assertThat(first.getStatus()).isEqualTo(201);
+        assertThat(second.getStatus()).isEqualTo(201);
+        assertThat(second.getHeader("Idempotent-Replayed")).isEqualTo("true");
+        assertThat(objectMapper.readTree(second.getContentAsString()).get("transferId").asText())
+                .isEqualTo(objectMapper.readTree(first.getContentAsString()).get("transferId").asText());
+        assertBalance(ownerId, from, 400.00);
+        assertBalance(ownerId, to, 100.00);
+        assertMovementCount(ownerId, from, 1);
+    }
+
+    @Test
+    void concurrentTransfersWithTheSameKeyExecuteOnlyOnce() throws Exception {
+        UUID from = createAccount(ownerId, "500.00");
+        UUID to = createAccount(ownerId, "0.00");
+        String key = UUID.randomUUID().toString();
+        int requests = 8;
+
+        ExecutorService pool = Executors.newFixedThreadPool(requests);
+        List<Callable<Integer>> tasks = new ArrayList<>();
+        for (int i = 0; i < requests; i++) {
+            tasks.add(() -> postTransfer(from, to, "50.00", key).andReturn().getResponse().getStatus());
+        }
+        List<Future<Integer>> results = pool.invokeAll(tasks);
+        pool.shutdown();
+
+        for (Future<Integer> result : results) {
+            assertThat(result.get()).isEqualTo(201);
+        }
+        assertBalance(ownerId, from, 450.00);
+        assertBalance(ownerId, to, 50.00);
+    }
+
+    @Test
     void rejectsTooLongKey() throws Exception {
         UUID account = createAccount(ownerId, "100.00");
 
@@ -169,6 +211,17 @@ class IdempotencyIT {
                 accountId, TransactionType.EXPENSE, new BigDecimal(amount), "EUR", null, "test", null, null, null);
         return mockMvc.perform(post("/api/v1/transactions")
                 .header("X-User-Id", requester.toString())
+                .header("Idempotency-Key", key)
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(request)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions postTransfer(
+            UUID from, UUID to, String amount, String key) throws Exception {
+        CreateTransferRequest request = new CreateTransferRequest(
+                from, to, new BigDecimal(amount), "EUR", "test", null, null);
+        return mockMvc.perform(post("/api/v1/transfers")
+                .header("X-User-Id", ownerId.toString())
                 .header("Idempotency-Key", key)
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(request)));
