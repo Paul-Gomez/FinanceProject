@@ -25,14 +25,18 @@ public class AccountBalanceService {
 
     @Transactional(propagation = Propagation.MANDATORY)
     public Money applyDelta(UUID accountId, UUID requesterId, Money signedDelta) {
+        Account account = lockOwnedAccount(accountId, requesterId);
+        account.applyDelta(signedDelta);
+        return account.balance();
+    }
+
+    private Account lockOwnedAccount(UUID accountId, UUID requesterId) {
         Account account = accountRepository.findByIdForUpdate(accountId)
                 .orElseThrow(() -> new AccountNotFoundException(accountId));
 
         if (!account.getOwnerId().equals(requesterId)) {
             throw new AccountAccessDeniedException(accountId);
         }
-
-        account.applyDelta(signedDelta);
-        return account.balance();
+        return account;
     }
 }
