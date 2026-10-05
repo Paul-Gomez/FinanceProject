@@ -79,6 +79,14 @@ public class Account {
         this.updatedAt = Instant.now();
     }
 
+    public void applyDelta(Money delta) {
+        if (this.status != AccountStatus.ACTIVE) {
+            throw new AccountNotActiveException(id, status);
+        }
+        this.balance = balance().add(delta).amount();
+        this.updatedAt = Instant.now();
+    }
+
     public Money balance() {
         return Money.of(balance, Currency.getInstance(currencyCode));
     }
