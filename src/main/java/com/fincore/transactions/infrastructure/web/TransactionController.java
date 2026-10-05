@@ -1,5 +1,6 @@
 package com.fincore.transactions.infrastructure.web;
 
+import com.fincore.shared.idempotency.IdempotencyService;
 import com.fincore.shared.web.PageResponse;
 import com.fincore.transactions.application.TransactionService;
 import com.fincore.transactions.infrastructure.web.dto.CreateTransactionRequest;
@@ -27,20 +28,35 @@ public class TransactionController {
     private static final String OWNER_HEADER = "X-User-Id";
     private static final int MAX_PAGE_SIZE = 100;
 
+    private static final String IDEMPOTENCY_HEADER = "Idempotency-Key";
+    private static final String REPLAYED_HEADER = "Idempotent-Replayed";
+
     private final TransactionService transactionService;
     private final TransactionMapper transactionMapper;
+    private final IdempotencyService idempotencyService;
 
-    public TransactionController(TransactionService transactionService, TransactionMapper transactionMapper) {
+    public TransactionController(TransactionService transactionService, TransactionMapper transactionMapper,
+                                 IdempotencyService idempotencyService) {
         this.transactionService = transactionService;
         this.transactionMapper = transactionMapper;
+        this.idempotencyService = idempotencyService;
     }
 
     @PostMapping
     public ResponseEntity<TransactionResponse> create(
             @RequestHeader(OWNER_HEADER) UUID requesterId,
+            @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String idempotencyKey,
             @Valid @RequestBody CreateTransactionRequest request) {
-        TransactionResponse body = transactionMapper.toResponse(transactionService.create(requesterId, request));
-        return ResponseEntity.status(HttpStatus.CREATED).body(body);
+        IdempotencyService.Outcome<TransactionResponse> outcome = idempotencyService.execute(
+                requesterId, idempotencyKey, "POST /api/v1/transactions", request,
+                HttpStatus.CREATED.value(), TransactionResponse.class,
+                () -> transactionMapper.toResponse(transactionService.create(requesterId, request)));
+
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(outcome.status());
+        if (outcome.replayed()) {
+            response.header(REPLAYED_HEADER, "true");
+        }
+        return response.body(outcome.body());
     }
 
     @GetMapping

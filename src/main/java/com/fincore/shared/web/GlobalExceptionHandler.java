@@ -5,6 +5,8 @@ import com.fincore.accounts.application.AccountNotFoundException;
 import com.fincore.accounts.application.UnknownOwnerException;
 import com.fincore.accounts.domain.AccountNotActiveException;
 import com.fincore.accounts.domain.InvalidAccountStatusTransitionException;
+import com.fincore.shared.idempotency.IdempotencyKeyReusedException;
+import com.fincore.shared.idempotency.InvalidIdempotencyKeyException;
 import com.fincore.shared.money.CurrencyMismatchException;
 import com.fincore.shared.money.InvalidCurrencyException;
 import com.fincore.transactions.application.SameAccountTransferException;
@@ -60,6 +62,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleCurrencyMismatch(CurrencyMismatchException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiErrorResponse.of(
                 HttpStatus.UNPROCESSABLE_ENTITY.value(), "CURRENCY_MISMATCH", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(IdempotencyKeyReusedException.class)
+    public ResponseEntity<ApiErrorResponse> handleIdempotencyKeyReused(IdempotencyKeyReusedException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiErrorResponse.of(
+                HttpStatus.UNPROCESSABLE_ENTITY.value(), "IDEMPOTENCY_KEY_REUSED", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(InvalidIdempotencyKeyException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidIdempotencyKey(InvalidIdempotencyKeyException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiErrorResponse.of(
+                HttpStatus.BAD_REQUEST.value(), "INVALID_IDEMPOTENCY_KEY", ex.getMessage(), request.getRequestURI()));
     }
 
     @ExceptionHandler(SameAccountTransferException.class)
