@@ -12,6 +12,7 @@ import java.util.UUID;
 public record TransactionResponse(
         UUID id,
         UUID accountId,
+        UUID transferId,
         TransactionType type,
         TransactionStatus status,
         BigDecimal amount,

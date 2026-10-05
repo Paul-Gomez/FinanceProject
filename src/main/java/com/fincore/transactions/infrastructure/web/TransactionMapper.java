@@ -11,6 +11,7 @@ public class TransactionMapper {
         return new TransactionResponse(
                 transaction.getId(),
                 transaction.getAccountId(),
+                transaction.getTransferId(),
                 transaction.getType(),
                 transaction.getStatus(),
                 transaction.getAmount(),

@@ -43,6 +43,9 @@ public class Transaction {
     @Column(name = "currency_code", nullable = false, updatable = false)
     private String currencyCode;
 
+    @Column(name = "transfer_id", updatable = false)
+    private UUID transferId;
+
     @Column(name = "category_id")
     private UUID categoryId;
 
@@ -91,6 +94,18 @@ public class Transaction {
         return new Transaction(accountId, TransactionType.EXPENSE, amount.negate(), categoryId, description, date, reference, metadata);
     }
 
+    /** Una pata de transferencia: el importe llega ya con signo (negativo en origen, positivo en destino). */
+    public static Transaction transferLeg(UUID transferId, UUID accountId, Money signedAmount,
+                                          String description, LocalDate date, String reference) {
+        if (signedAmount.isZero()) {
+            throw new IllegalArgumentException("El importe de la transferencia debe ser distinto de cero");
+        }
+        Transaction leg = new Transaction(accountId, TransactionType.TRANSFER, signedAmount, null,
+                description, date, reference, null);
+        leg.transferId = transferId;
+        return leg;
+    }
+
     private static void requirePositive(Money amount) {
         if (!amount.isPositive()) {
             throw new IllegalArgumentException("El importe del movimiento debe ser mayor que cero");
@@ -123,6 +138,10 @@ public class Transaction {
 
     public String getCurrencyCode() {
         return currencyCode;
+    }
+
+    public UUID getTransferId() {
+        return transferId;
     }
 
     public UUID getCategoryId() {

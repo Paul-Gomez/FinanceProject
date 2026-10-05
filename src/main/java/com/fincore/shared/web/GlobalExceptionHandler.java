@@ -7,6 +7,7 @@ import com.fincore.accounts.domain.AccountNotActiveException;
 import com.fincore.accounts.domain.InvalidAccountStatusTransitionException;
 import com.fincore.shared.money.CurrencyMismatchException;
 import com.fincore.shared.money.InvalidCurrencyException;
+import com.fincore.transactions.application.SameAccountTransferException;
 import com.fincore.transactions.application.UnsupportedTransactionTypeException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
@@ -59,6 +60,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleCurrencyMismatch(CurrencyMismatchException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiErrorResponse.of(
                 HttpStatus.UNPROCESSABLE_ENTITY.value(), "CURRENCY_MISMATCH", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(SameAccountTransferException.class)
+    public ResponseEntity<ApiErrorResponse> handleSameAccountTransfer(SameAccountTransferException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiErrorResponse.of(
+                HttpStatus.BAD_REQUEST.value(), "SAME_ACCOUNT_TRANSFER", ex.getMessage(), request.getRequestURI()));
     }
 
     @ExceptionHandler(InvalidCurrencyException.class)
