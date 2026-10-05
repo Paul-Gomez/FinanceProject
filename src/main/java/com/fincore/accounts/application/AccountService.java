@@ -11,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.Currency;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,7 +32,7 @@ public class AccountService {
         }
 
         BigDecimal initialAmount = request.initialBalance() != null ? request.initialBalance() : BigDecimal.ZERO;
-        Money initialBalance = Money.of(initialAmount, Currency.getInstance(request.currencyCode()));
+        Money initialBalance = Money.of(initialAmount, Money.currencyFor(request.currencyCode()));
 
         Account account = new Account(ownerId, request.name(), request.type(), initialBalance);
         return accountRepository.save(account);

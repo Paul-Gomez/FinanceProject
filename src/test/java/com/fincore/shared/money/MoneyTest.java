@@ -55,6 +55,13 @@ class MoneyTest {
     }
 
     @Test
+    void currencyForRejectsUnknownCodes() {
+        assertThat(Money.currencyFor("EUR")).isEqualTo(EUR);
+        assertThatThrownBy(() -> Money.currencyFor("ZZZ"))
+                .isInstanceOf(InvalidCurrencyException.class);
+    }
+
+    @Test
     void zeroIsNeitherPositiveNorNegative() {
         Money zero = Money.zero(USD);
 

@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.Currency;
 import java.util.UUID;
 
 @Service
@@ -36,7 +35,7 @@ public class TransactionService {
      */
     @Transactional
     public Transaction create(UUID requesterId, CreateTransactionRequest request) {
-        Money amount = Money.of(request.amount(), Currency.getInstance(request.currencyCode()));
+        Money amount = Money.of(request.amount(), Money.currencyFor(request.currencyCode()));
         LocalDate date = request.date() != null ? request.date() : LocalDate.now();
 
         Transaction transaction = switch (request.type()) {

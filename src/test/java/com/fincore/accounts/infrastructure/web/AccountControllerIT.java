@@ -90,6 +90,18 @@ class AccountControllerIT {
     }
 
     @Test
+    void rejectsUnknownCurrencyCode() throws Exception {
+        CreateAccountRequest request = new CreateAccountRequest("Cuenta", AccountType.CASH, "ZZZ", null);
+
+        mockMvc.perform(post("/api/v1/accounts")
+                        .header("X-User-Id", ownerId.toString())
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_CURRENCY"));
+    }
+
+    @Test
     void deniesAccessToSomeoneElsesAccount() throws Exception {
         UUID accountId = createAccount(ownerId, "Cuenta privada");
 

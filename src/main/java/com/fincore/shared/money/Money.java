@@ -29,6 +29,14 @@ public final class Money {
         return of(new BigDecimal(amount), Currency.getInstance(currencyCode));
     }
 
+    public static Currency currencyFor(String code) {
+        try {
+            return Currency.getInstance(code);
+        } catch (IllegalArgumentException e) {
+            throw new InvalidCurrencyException(code);
+        }
+    }
+
     public static Money zero(Currency currency) {
         return of(BigDecimal.ZERO, currency);
     }
