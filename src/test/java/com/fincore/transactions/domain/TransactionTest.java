@@ -30,6 +30,17 @@ class TransactionTest {
     }
 
     @Test
+    void transferLegsShareTheTransferId() {
+        UUID transferId = UUID.randomUUID();
+        Transaction out = Transaction.transferLeg(transferId, UUID.randomUUID(), Money.of("-40.00", "EUR"), null, TODAY, null);
+        Transaction in = Transaction.transferLeg(transferId, UUID.randomUUID(), Money.of("40.00", "EUR"), null, TODAY, null);
+
+        assertThat(out.getTransferId()).isEqualTo(in.getTransferId());
+        assertThat(out.getType()).isEqualTo(TransactionType.TRANSFER);
+        assertThat(out.signedAmount().add(in.signedAmount()).isZero()).isTrue();
+    }
+
+    @Test
     void rejectsZeroOrNegativeAmounts() {
         UUID account = UUID.randomUUID();
 
