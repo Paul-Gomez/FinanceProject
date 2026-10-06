@@ -34,7 +34,7 @@ public class AccountService {
         }
 
         BigDecimal initialAmount = request.initialBalance() != null ? request.initialBalance() : BigDecimal.ZERO;
-        Money initialBalance = Money.of(initialAmount, Money.currencyFor(request.currencyCode()));
+        Money initialBalance = Money.ofExact(initialAmount, Money.currencyFor(request.currencyCode()));
 
         Account account = new Account(ownerId, request.name(), request.type(), initialBalance);
         return saveOrFailIfNameTaken(account);

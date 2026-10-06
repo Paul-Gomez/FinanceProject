@@ -25,6 +25,19 @@ public final class Money {
         return new Money(amount, currency);
     }
 
+    /**
+     * Para importes que llegan de fuera (peticiones, ficheros): si traen más decimales de los que
+     * admite la moneda se rechazan en vez de redondearlos, porque redondear sería cambiar el dato.
+     */
+    public static Money ofExact(BigDecimal amount, Currency currency) {
+        Objects.requireNonNull(amount, "amount must not be null");
+        Objects.requireNonNull(currency, "currency must not be null");
+        if (amount.stripTrailingZeros().scale() > currency.getDefaultFractionDigits()) {
+            throw new InvalidAmountPrecisionException(amount, currency);
+        }
+        return new Money(amount, currency);
+    }
+
     public static Money of(String amount, String currencyCode) {
         return of(new BigDecimal(amount), Currency.getInstance(currencyCode));
     }

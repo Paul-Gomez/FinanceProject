@@ -13,6 +13,7 @@ import com.fincore.categories.application.CategoryReadOnlyException;
 import com.fincore.shared.idempotency.IdempotencyKeyReusedException;
 import com.fincore.shared.idempotency.InvalidIdempotencyKeyException;
 import com.fincore.shared.money.CurrencyMismatchException;
+import com.fincore.shared.money.InvalidAmountPrecisionException;
 import com.fincore.shared.money.InvalidCurrencyException;
 import com.fincore.transactions.application.SameAccountTransferException;
 import com.fincore.transactions.application.UnsupportedTransactionTypeException;
@@ -115,6 +116,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleSameAccountTransfer(SameAccountTransferException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiErrorResponse.of(
                 HttpStatus.BAD_REQUEST.value(), "SAME_ACCOUNT_TRANSFER", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(InvalidAmountPrecisionException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidAmountPrecision(InvalidAmountPrecisionException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiErrorResponse.of(
+                HttpStatus.BAD_REQUEST.value(), "INVALID_AMOUNT_PRECISION", ex.getMessage(), request.getRequestURI()));
     }
 
     @ExceptionHandler(InvalidCurrencyException.class)

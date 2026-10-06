@@ -55,6 +55,22 @@ class MoneyTest {
     }
 
     @Test
+    void ofExactRejectsMoreDecimalsThanTheCurrencyAllows() {
+        assertThatThrownBy(() -> Money.ofExact(new BigDecimal("10.555"), EUR))
+                .isInstanceOf(InvalidAmountPrecisionException.class);
+        assertThatThrownBy(() -> Money.ofExact(new BigDecimal("10.5"), Currency.getInstance("JPY")))
+                .isInstanceOf(InvalidAmountPrecisionException.class);
+    }
+
+    @Test
+    void ofExactAcceptsAmountsWithinPrecision() {
+        assertThat(Money.ofExact(new BigDecimal("10.5"), EUR)).isEqualTo(Money.of("10.50", "EUR"));
+        assertThat(Money.ofExact(new BigDecimal("10.500"), EUR)).isEqualTo(Money.of("10.50", "EUR"));
+        assertThat(Money.ofExact(new BigDecimal("1500"), Currency.getInstance("JPY")).amount())
+                .isEqualByComparingTo("1500");
+    }
+
+    @Test
     void currencyForRejectsUnknownCodes() {
         assertThat(Money.currencyFor("EUR")).isEqualTo(EUR);
         assertThatThrownBy(() -> Money.currencyFor("ZZZ"))

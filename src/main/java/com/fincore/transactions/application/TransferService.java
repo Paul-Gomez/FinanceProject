@@ -37,7 +37,7 @@ public class TransferService {
             throw new SameAccountTransferException();
         }
 
-        Money amount = Money.of(request.amount(), Money.currencyFor(request.currencyCode()));
+        Money amount = Money.ofExact(request.amount(), Money.currencyFor(request.currencyCode()));
         LocalDate date = request.date() != null ? request.date() : LocalDate.now();
         UUID transferId = UUID.randomUUID();
 

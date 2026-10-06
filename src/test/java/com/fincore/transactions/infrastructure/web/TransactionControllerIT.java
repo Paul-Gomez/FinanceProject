@@ -99,6 +99,18 @@ class TransactionControllerIT {
     }
 
     @Test
+    void rejectsAmountWithMoreDecimalsThanTheCurrencyAllows() throws Exception {
+        UUID accountId = createAccount(ownerId, "100.00");
+
+        postTransaction(ownerId, accountId, TransactionType.EXPENSE, "10.555", "EUR")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_AMOUNT_PRECISION"));
+
+        mockMvc.perform(get("/api/v1/accounts/" + accountId).header("X-User-Id", ownerId.toString()))
+                .andExpect(jsonPath("$.balance").value(100.00));
+    }
+
+    @Test
     void deniesMovementOnSomeoneElsesAccount() throws Exception {
         UUID accountId = createAccount(ownerId, "100.00");
 
