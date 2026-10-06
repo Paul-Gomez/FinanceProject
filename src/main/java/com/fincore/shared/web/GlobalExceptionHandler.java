@@ -5,6 +5,10 @@ import com.fincore.accounts.application.AccountNotFoundException;
 import com.fincore.users.application.UnknownOwnerException;
 import com.fincore.accounts.domain.AccountNotActiveException;
 import com.fincore.accounts.domain.InvalidAccountStatusTransitionException;
+import com.fincore.categories.application.CategoryAccessDeniedException;
+import com.fincore.categories.application.CategoryAlreadyExistsException;
+import com.fincore.categories.application.CategoryNotFoundException;
+import com.fincore.categories.application.CategoryReadOnlyException;
 import com.fincore.shared.idempotency.IdempotencyKeyReusedException;
 import com.fincore.shared.idempotency.InvalidIdempotencyKeyException;
 import com.fincore.shared.money.CurrencyMismatchException;
@@ -62,6 +66,30 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleCurrencyMismatch(CurrencyMismatchException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiErrorResponse.of(
                 HttpStatus.UNPROCESSABLE_ENTITY.value(), "CURRENCY_MISMATCH", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(CategoryNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleCategoryNotFound(CategoryNotFoundException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiErrorResponse.of(
+                HttpStatus.NOT_FOUND.value(), "CATEGORY_NOT_FOUND", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(CategoryAccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> handleCategoryAccessDenied(CategoryAccessDeniedException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiErrorResponse.of(
+                HttpStatus.FORBIDDEN.value(), "ACCESS_DENIED", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(CategoryReadOnlyException.class)
+    public ResponseEntity<ApiErrorResponse> handleCategoryReadOnly(CategoryReadOnlyException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiErrorResponse.of(
+                HttpStatus.FORBIDDEN.value(), "CATEGORY_READ_ONLY", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(CategoryAlreadyExistsException.class)
+    public ResponseEntity<ApiErrorResponse> handleCategoryAlreadyExists(CategoryAlreadyExistsException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.of(
+                HttpStatus.CONFLICT.value(), "CATEGORY_ALREADY_EXISTS", ex.getMessage(), request.getRequestURI()));
     }
 
     @ExceptionHandler(IdempotencyKeyReusedException.class)

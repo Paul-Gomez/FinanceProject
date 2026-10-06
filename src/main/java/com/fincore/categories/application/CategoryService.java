@@ -1,0 +1,86 @@
+package com.fincore.categories.application;
+
+import com.fincore.categories.domain.Category;
+import com.fincore.categories.domain.CategoryKind;
+import com.fincore.categories.infrastructure.persistence.CategoryJpaRepository;
+import com.fincore.categories.infrastructure.web.dto.CreateCategoryRequest;
+import com.fincore.categories.infrastructure.web.dto.UpdateCategoryRequest;
+import com.fincore.users.application.UnknownOwnerException;
+import com.fincore.users.application.UserQueryService;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.UUID;
+
+@Service
+public class CategoryService {
+
+    private final CategoryJpaRepository categoryRepository;
+    private final UserQueryService userQueryService;
+
+    public CategoryService(CategoryJpaRepository categoryRepository, UserQueryService userQueryService) {
+        this.categoryRepository = categoryRepository;
+        this.userQueryService = userQueryService;
+    }
+
+    @Transactional
+    public Category create(UUID ownerId, CreateCategoryRequest request) {
+        if (!userQueryService.existsById(ownerId)) {
+            throw new UnknownOwnerException(ownerId);
+        }
+
+        Category category = new Category(ownerId, request.name().trim(), request.kind(), request.color(), request.icon());
+        return saveOrFailIfDuplicated(category);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Category> listVisibleTo(UUID userId, CategoryKind kind) {
+        return kind == null
+                ? categoryRepository.findVisibleTo(userId)
+                : categoryRepository.findVisibleToByKind(userId, kind);
+    }
+
+    @Transactional(readOnly = true)
+    public Category getVisibleTo(UUID categoryId, UUID userId) {
+        Category category = findOrThrow(categoryId);
+        if (!category.isVisibleTo(userId)) {
+            throw new CategoryAccessDeniedException(categoryId);
+        }
+        return category;
+    }
+
+    @Transactional
+    public Category update(UUID categoryId, UUID userId, UpdateCategoryRequest request) {
+        Category category = getEditable(categoryId, userId);
+        category.update(request.name().trim(), request.color(), request.icon());
+        return saveOrFailIfDuplicated(category);
+    }
+
+    @Transactional
+    public void delete(UUID categoryId, UUID userId) {
+        categoryRepository.delete(getEditable(categoryId, userId));
+    }
+
+    private Category getEditable(UUID categoryId, UUID userId) {
+        Category category = getVisibleTo(categoryId, userId);
+        if (category.isSystem()) {
+            throw new CategoryReadOnlyException(categoryId);
+        }
+        return category;
+    }
+
+    private Category findOrThrow(UUID categoryId) {
+        return categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new CategoryNotFoundException(categoryId));
+    }
+
+    private Category saveOrFailIfDuplicated(Category category) {
+        try {
+            return categoryRepository.saveAndFlush(category);
+        } catch (DataIntegrityViolationException e) {
+            throw new CategoryAlreadyExistsException(category.getName());
+        }
+    }
+}
