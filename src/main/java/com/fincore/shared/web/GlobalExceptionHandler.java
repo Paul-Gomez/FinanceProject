@@ -4,6 +4,7 @@ import com.fincore.accounts.application.AccountAccessDeniedException;
 import com.fincore.accounts.application.AccountNameAlreadyExistsException;
 import com.fincore.accounts.application.AccountNotFoundException;
 import com.fincore.users.application.UnknownOwnerException;
+import com.fincore.accounts.domain.AccountBalanceNotZeroException;
 import com.fincore.accounts.domain.AccountNotActiveException;
 import com.fincore.accounts.domain.InvalidAccountStatusTransitionException;
 import com.fincore.categories.application.CategoryAccessDeniedException;
@@ -92,6 +93,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleAccountNameTaken(AccountNameAlreadyExistsException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.of(
                 HttpStatus.CONFLICT.value(), "ACCOUNT_NAME_ALREADY_EXISTS", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(AccountBalanceNotZeroException.class)
+    public ResponseEntity<ApiErrorResponse> handleBalanceNotZero(AccountBalanceNotZeroException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.of(
+                HttpStatus.CONFLICT.value(), "ACCOUNT_BALANCE_NOT_ZERO", ex.getMessage(), request.getRequestURI()));
     }
 
     @ExceptionHandler(AccountNotActiveException.class)

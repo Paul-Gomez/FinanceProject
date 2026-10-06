@@ -79,6 +79,9 @@ public class Account {
         if (!this.status.canTransitionTo(target)) {
             throw new InvalidAccountStatusTransitionException(this.status, target);
         }
+        if (target == AccountStatus.CLOSED && !balance().isZero()) {
+            throw new AccountBalanceNotZeroException(id, balance());
+        }
         this.status = target;
         this.updatedAt = Instant.now();
     }

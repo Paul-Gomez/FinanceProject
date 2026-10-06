@@ -77,6 +77,28 @@ class AccountTest {
     }
 
     @Test
+    void cannotCloseAnAccountWithBalanceButCanArchiveIt() {
+        Account account = newEurAccountWith("0.01");
+
+        assertThatThrownBy(() -> account.changeStatus(AccountStatus.CLOSED))
+                .isInstanceOf(AccountBalanceNotZeroException.class);
+        assertThat(account.getStatus()).isEqualTo(AccountStatus.ACTIVE);
+
+        account.changeStatus(AccountStatus.ARCHIVED);
+        assertThat(account.getStatus()).isEqualTo(AccountStatus.ARCHIVED);
+    }
+
+    @Test
+    void canCloseOnceTheBalanceIsBackToZero() {
+        Account account = newEurAccountWith("50.00");
+        account.applyDelta(Money.of("-50.00", "EUR"));
+
+        account.changeStatus(AccountStatus.CLOSED);
+
+        assertThat(account.getStatus()).isEqualTo(AccountStatus.CLOSED);
+    }
+
+    @Test
     void rejectsTransitionOutOfClosed() {
         Account account = newEurAccount();
         account.changeStatus(AccountStatus.CLOSED);

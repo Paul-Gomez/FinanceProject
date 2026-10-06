@@ -153,6 +153,28 @@ class AccountControllerIT {
     }
 
     @Test
+    void rejectsClosingAnAccountWithBalance() throws Exception {
+        String body = mockMvc.perform(post("/api/v1/accounts")
+                        .header("X-User-Id", ownerId.toString())
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(
+                                new CreateAccountRequest("Con saldo", AccountType.BANK, "EUR", new BigDecimal("15.00")))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        UUID accountId = UUID.fromString(objectMapper.readTree(body).get("id").asText());
+
+        mockMvc.perform(patch("/api/v1/accounts/" + accountId + "/status")
+                        .header("X-User-Id", ownerId.toString())
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new ChangeAccountStatusRequest(AccountStatus.CLOSED))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ACCOUNT_BALANCE_NOT_ZERO"));
+
+        mockMvc.perform(get("/api/v1/accounts/" + accountId).header("X-User-Id", ownerId.toString()))
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
+    }
+
+    @Test
     void rejectsUnknownCurrencyCode() throws Exception {
         CreateAccountRequest request = new CreateAccountRequest("Cuenta", AccountType.CASH, "ZZZ", null);
 
