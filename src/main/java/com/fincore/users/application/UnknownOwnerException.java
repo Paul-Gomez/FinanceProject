@@ -1,4 +1,4 @@
-package com.fincore.accounts.application;
+package com.fincore.users.application;
 
 import java.util.UUID;
 

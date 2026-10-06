@@ -2,7 +2,7 @@ package com.fincore.shared.web;
 
 import com.fincore.accounts.application.AccountAccessDeniedException;
 import com.fincore.accounts.application.AccountNotFoundException;
-import com.fincore.accounts.application.UnknownOwnerException;
+import com.fincore.users.application.UnknownOwnerException;
 import com.fincore.accounts.domain.AccountNotActiveException;
 import com.fincore.accounts.domain.InvalidAccountStatusTransitionException;
 import com.fincore.shared.idempotency.IdempotencyKeyReusedException;

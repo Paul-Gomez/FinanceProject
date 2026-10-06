@@ -6,6 +6,7 @@ import com.fincore.accounts.infrastructure.persistence.AccountJpaRepository;
 import com.fincore.accounts.infrastructure.web.dto.CreateAccountRequest;
 import com.fincore.accounts.infrastructure.web.dto.UpdateAccountRequest;
 import com.fincore.shared.money.Money;
+import com.fincore.users.application.UnknownOwnerException;
 import com.fincore.users.application.UserQueryService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
