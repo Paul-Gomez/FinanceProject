@@ -58,9 +58,18 @@ public class CategoryService {
         return saveOrFailIfDuplicated(category);
     }
 
+    /**
+     * La clave foránea de transactions impide borrar una categoría con movimientos. Se fuerza el
+     * flush para que ese error salte aquí y se traduzca a un 409, y no al confirmar (un 500).
+     */
     @Transactional
     public void delete(UUID categoryId, UUID userId) {
-        categoryRepository.delete(getEditable(categoryId, userId));
+        try {
+            categoryRepository.delete(getEditable(categoryId, userId));
+            categoryRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new CategoryInUseException(categoryId);
+        }
     }
 
     private Category getEditable(UUID categoryId, UUID userId) {

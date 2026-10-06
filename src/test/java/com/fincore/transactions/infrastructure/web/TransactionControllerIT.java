@@ -5,6 +5,8 @@ import com.fincore.accounts.domain.AccountType;
 import com.fincore.accounts.infrastructure.web.dto.ChangeAccountStatusRequest;
 import com.fincore.accounts.infrastructure.web.dto.CreateAccountRequest;
 import com.fincore.accounts.domain.AccountStatus;
+import com.fincore.categories.domain.CategoryKind;
+import com.fincore.categories.infrastructure.web.dto.CreateCategoryRequest;
 import com.fincore.transactions.domain.TransactionType;
 import com.fincore.transactions.infrastructure.web.dto.CreateTransactionRequest;
 import com.fincore.users.domain.AppUser;
@@ -31,6 +33,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -96,6 +99,53 @@ class TransactionControllerIT {
         mockMvc.perform(get("/api/v1/transactions").param("accountId", accountId.toString())
                         .header("X-User-Id", ownerId.toString()))
                 .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void acceptsAVisibleCategoryOfTheRightKind() throws Exception {
+        UUID accountId = createAccount(ownerId, "100.00");
+        UUID food = systemCategoryId("Alimentación");
+
+        postWithCategory(ownerId, accountId, TransactionType.EXPENSE, food)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.categoryId").value(food.toString()));
+    }
+
+    @Test
+    void rejectsCategoryOfTheWrongKindWithoutTouchingTheBalance() throws Exception {
+        UUID accountId = createAccount(ownerId, "100.00");
+
+        postWithCategory(ownerId, accountId, TransactionType.EXPENSE, systemCategoryId("Nómina"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("CATEGORY_KIND_MISMATCH"));
+
+        mockMvc.perform(get("/api/v1/accounts/" + accountId).header("X-User-Id", ownerId.toString()))
+                .andExpect(jsonPath("$.balance").value(100.00));
+    }
+
+    @Test
+    void rejectsUnknownOrForeignCategory() throws Exception {
+        UUID accountId = createAccount(ownerId, "100.00");
+        UUID foreign = createCategory(otherOwnerId, "Ajena " + UUID.randomUUID());
+
+        postWithCategory(ownerId, accountId, TransactionType.EXPENSE, UUID.randomUUID())
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("CATEGORY_NOT_FOUND"));
+        postWithCategory(ownerId, accountId, TransactionType.EXPENSE, foreign)
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void categoryInUseCannotBeDeleted() throws Exception {
+        UUID accountId = createAccount(ownerId, "100.00");
+        UUID mine = createCategory(ownerId, "Mascotas " + UUID.randomUUID());
+        postWithCategory(ownerId, accountId, TransactionType.EXPENSE, mine).andExpect(status().isCreated());
+
+        mockMvc.perform(delete("/api/v1/categories/" + mine).header("X-User-Id", ownerId.toString()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CATEGORY_IN_USE"));
+        mockMvc.perform(get("/api/v1/categories/" + mine).header("X-User-Id", ownerId.toString()))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -218,6 +268,38 @@ class TransactionControllerIT {
                 .header("X-User-Id", requester.toString())
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(request)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions postWithCategory(
+            UUID requester, UUID accountId, TransactionType type, UUID categoryId) throws Exception {
+        CreateTransactionRequest request = new CreateTransactionRequest(
+                accountId, type, new BigDecimal("10.00"), "EUR", categoryId, "test", null, null, null);
+        return mockMvc.perform(post("/api/v1/transactions")
+                .header("X-User-Id", requester.toString())
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(request)));
+    }
+
+    private UUID createCategory(UUID owner, String name) throws Exception {
+        String body = mockMvc.perform(post("/api/v1/categories")
+                        .header("X-User-Id", owner.toString())
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(
+                                new CreateCategoryRequest(name, CategoryKind.EXPENSE, null, null))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return UUID.fromString(objectMapper.readTree(body).get("id").asText());
+    }
+
+    private UUID systemCategoryId(String name) throws Exception {
+        String body = mockMvc.perform(get("/api/v1/categories").header("X-User-Id", ownerId.toString()))
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        for (var category : objectMapper.readTree(body)) {
+            if (category.get("system").asBoolean() && category.get("name").asText().equals(name)) {
+                return UUID.fromString(category.get("id").asText());
+            }
+        }
+        throw new IllegalStateException("No existe la categoría del sistema " + name);
     }
 
     private UUID createAccount(UUID owner, String initialBalance) throws Exception {

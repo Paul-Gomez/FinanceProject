@@ -2,8 +2,11 @@ package com.fincore.transactions.application;
 
 import com.fincore.accounts.application.AccountBalanceService;
 import com.fincore.accounts.application.AccountService;
+import com.fincore.categories.application.CategoryQueryService;
+import com.fincore.categories.domain.CategoryKind;
 import com.fincore.shared.money.Money;
 import com.fincore.transactions.domain.Transaction;
+import com.fincore.transactions.domain.TransactionType;
 import com.fincore.transactions.infrastructure.persistence.TransactionJpaRepository;
 import com.fincore.transactions.infrastructure.web.dto.CreateTransactionRequest;
 import org.springframework.data.domain.Page;
@@ -20,13 +23,16 @@ public class TransactionService {
     private final TransactionJpaRepository transactionRepository;
     private final AccountBalanceService accountBalanceService;
     private final AccountService accountService;
+    private final CategoryQueryService categoryQueryService;
 
     public TransactionService(TransactionJpaRepository transactionRepository,
                               AccountBalanceService accountBalanceService,
-                              AccountService accountService) {
+                              AccountService accountService,
+                              CategoryQueryService categoryQueryService) {
         this.transactionRepository = transactionRepository;
         this.accountBalanceService = accountBalanceService;
         this.accountService = accountService;
+        this.categoryQueryService = categoryQueryService;
     }
 
     /**
@@ -45,6 +51,11 @@ public class TransactionService {
                     request.description(), date, request.reference(), request.metadata());
             default -> throw new UnsupportedTransactionTypeException(request.type());
         };
+
+        if (request.categoryId() != null) {
+            CategoryKind expectedKind = request.type() == TransactionType.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
+            categoryQueryService.requireUsable(request.categoryId(), requesterId, expectedKind);
+        }
 
         accountBalanceService.applyDelta(request.accountId(), requesterId, transaction.signedAmount());
         return transactionRepository.save(transaction);

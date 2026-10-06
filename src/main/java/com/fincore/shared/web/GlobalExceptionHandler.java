@@ -9,6 +9,8 @@ import com.fincore.accounts.domain.AccountNotActiveException;
 import com.fincore.accounts.domain.InvalidAccountStatusTransitionException;
 import com.fincore.categories.application.CategoryAccessDeniedException;
 import com.fincore.categories.application.CategoryAlreadyExistsException;
+import com.fincore.categories.application.CategoryInUseException;
+import com.fincore.categories.application.CategoryKindMismatchException;
 import com.fincore.categories.application.CategoryNotFoundException;
 import com.fincore.categories.application.CategoryReadOnlyException;
 import com.fincore.shared.idempotency.IdempotencyKeyReusedException;
@@ -129,6 +131,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleCategoryReadOnly(CategoryReadOnlyException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiErrorResponse.of(
                 HttpStatus.FORBIDDEN.value(), "CATEGORY_READ_ONLY", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(CategoryKindMismatchException.class)
+    public ResponseEntity<ApiErrorResponse> handleCategoryKindMismatch(CategoryKindMismatchException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiErrorResponse.of(
+                HttpStatus.UNPROCESSABLE_ENTITY.value(), "CATEGORY_KIND_MISMATCH", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(CategoryInUseException.class)
+    public ResponseEntity<ApiErrorResponse> handleCategoryInUse(CategoryInUseException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.of(
+                HttpStatus.CONFLICT.value(), "CATEGORY_IN_USE", ex.getMessage(), request.getRequestURI()));
     }
 
     @ExceptionHandler(CategoryAlreadyExistsException.class)
