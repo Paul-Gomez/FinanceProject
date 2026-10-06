@@ -43,11 +43,17 @@ public final class Money {
     }
 
     public static Currency currencyFor(String code) {
+        Currency currency;
         try {
-            return Currency.getInstance(code);
+            currency = Currency.getInstance(code);
         } catch (IllegalArgumentException e) {
             throw new InvalidCurrencyException(code);
         }
+        // Códigos como XAU (oro) o XDR no tienen decimales definidos (-1): no son monedas para cuentas.
+        if (currency.getDefaultFractionDigits() < 0) {
+            throw new InvalidCurrencyException(code);
+        }
+        return currency;
     }
 
     public static Money zero(Currency currency) {

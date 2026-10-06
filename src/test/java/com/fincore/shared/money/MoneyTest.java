@@ -78,6 +78,14 @@ class MoneyTest {
     }
 
     @Test
+    void currencyForRejectsCodesWithoutDefinedDecimals() {
+        assertThatThrownBy(() -> Money.currencyFor("XAU"))
+                .isInstanceOf(InvalidCurrencyException.class);
+        assertThatThrownBy(() -> Money.currencyFor("XDR"))
+                .isInstanceOf(InvalidCurrencyException.class);
+    }
+
+    @Test
     void zeroIsNeitherPositiveNorNegative() {
         Money zero = Money.zero(USD);
 
