@@ -94,6 +94,16 @@ public class Transaction {
         return new Transaction(accountId, TransactionType.EXPENSE, amount.negate(), categoryId, description, date, reference, metadata);
     }
 
+    /** Ajuste manual o saldo inicial: el importe llega ya con signo. */
+    public static Transaction adjustment(UUID accountId, Money signedAmount, String description,
+                                         LocalDate date, Map<String, Object> metadata) {
+        if (signedAmount.isZero()) {
+            throw new IllegalArgumentException("Un ajuste de cero no tiene sentido");
+        }
+        return new Transaction(accountId, TransactionType.ADJUSTMENT, signedAmount, null,
+                description, date, null, metadata);
+    }
+
     /** Una pata de transferencia: el importe llega ya con signo (negativo en origen, positivo en destino). */
     public static Transaction transferLeg(UUID transferId, UUID accountId, Money signedAmount,
                                           String description, LocalDate date, String reference) {

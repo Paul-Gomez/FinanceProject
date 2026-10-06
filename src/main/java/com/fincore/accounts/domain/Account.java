@@ -55,12 +55,16 @@ public class Account {
     protected Account() {
     }
 
-    public Account(UUID ownerId, String name, AccountType type, Money initialBalance) {
+    /**
+     * Una cuenta nace siempre a cero: el saldo inicial entra como un movimiento más,
+     * para que el saldo se pueda reconstruir siempre sumando movimientos.
+     */
+    public Account(UUID ownerId, String name, AccountType type, Currency currency) {
         this.ownerId = ownerId;
         this.name = name;
         this.type = type;
-        this.currencyCode = initialBalance.currency().getCurrencyCode();
-        this.balance = initialBalance.amount();
+        this.currencyCode = currency.getCurrencyCode();
+        this.balance = Money.zero(currency).amount();
         this.status = AccountStatus.ACTIVE;
         this.createdAt = Instant.now();
         this.updatedAt = this.createdAt;

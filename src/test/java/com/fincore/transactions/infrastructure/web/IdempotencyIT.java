@@ -85,7 +85,7 @@ class IdempotencyIT {
         assertThat(second.getHeader("Idempotent-Replayed")).isEqualTo("true");
         assertThat(idOf(second)).isEqualTo(idOf(first));
         assertBalance(ownerId, account, 70.00);
-        assertMovementCount(ownerId, account, 1);
+        assertMovementCount(ownerId, account, 2);
     }
 
     @Test
@@ -99,7 +99,7 @@ class IdempotencyIT {
                 .andExpect(jsonPath("$.code").value("IDEMPOTENCY_KEY_REUSED"));
 
         assertBalance(ownerId, account, 70.00);
-        assertMovementCount(ownerId, account, 1);
+        assertMovementCount(ownerId, account, 2);
     }
 
     @Test
@@ -123,7 +123,7 @@ class IdempotencyIT {
         }
         assertThat(ids).hasSize(1);
         assertBalance(ownerId, account, 990.00);
-        assertMovementCount(ownerId, account, 1);
+        assertMovementCount(ownerId, account, 2);
     }
 
     @Test
@@ -169,7 +169,7 @@ class IdempotencyIT {
                 .isEqualTo(objectMapper.readTree(first.getContentAsString()).get("transferId").asText());
         assertBalance(ownerId, from, 400.00);
         assertBalance(ownerId, to, 100.00);
-        assertMovementCount(ownerId, from, 1);
+        assertMovementCount(ownerId, from, 2);
     }
 
     @Test
@@ -202,7 +202,7 @@ class IdempotencyIT {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_IDEMPOTENCY_KEY"));
 
-        assertMovementCount(ownerId, account, 0);
+        assertMovementCount(ownerId, account, 1);
     }
 
     private org.springframework.test.web.servlet.ResultActions postExpense(

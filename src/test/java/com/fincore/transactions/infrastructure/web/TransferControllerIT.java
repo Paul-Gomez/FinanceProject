@@ -83,8 +83,8 @@ class TransferControllerIT {
 
         assertBalance(ownerId, from, 380.00);
         assertBalance(ownerId, to, 170.00);
-        assertMovementCount(ownerId, from, 1);
-        assertMovementCount(ownerId, to, 1);
+        assertMovementCount(ownerId, from, 2);
+        assertMovementCount(ownerId, to, 2);
     }
 
     @Test
@@ -102,7 +102,7 @@ class TransferControllerIT {
 
         assertBalance(ownerId, from, 500.00);
         assertBalance(ownerId, archivedDestination, 50.00);
-        assertMovementCount(ownerId, from, 0);
+        assertMovementCount(ownerId, from, 1);
     }
 
     @Test
@@ -126,7 +126,7 @@ class TransferControllerIT {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("SAME_ACCOUNT_TRANSFER"));
 
-        assertMovementCount(ownerId, account, 0);
+        assertMovementCount(ownerId, account, 1);
     }
 
     @Test
@@ -160,7 +160,7 @@ class TransferControllerIT {
         }
         assertBalance(ownerId, a, 1000.00);
         assertBalance(ownerId, b, 1000.00);
-        assertMovementCount(ownerId, a, perDirection * 2);
+        assertMovementCount(ownerId, a, perDirection * 2 + 1);
     }
 
     private ResultActions transfer(UUID requester, UUID from, UUID to, String amount, String currency) throws Exception {

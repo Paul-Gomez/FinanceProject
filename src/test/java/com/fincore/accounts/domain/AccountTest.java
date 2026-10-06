@@ -1,8 +1,10 @@
 package com.fincore.accounts.domain;
 
+import com.fincore.shared.money.CurrencyMismatchException;
 import com.fincore.shared.money.Money;
 import org.junit.jupiter.api.Test;
 
+import java.util.Currency;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -10,17 +12,29 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AccountTest {
 
+    private static final Currency EUR = Currency.getInstance("EUR");
+
+    private static Account newEurAccount() {
+        return new Account(UUID.randomUUID(), "Cuenta", AccountType.BANK, EUR);
+    }
+
+    private static Account newEurAccountWith(String balance) {
+        Account account = newEurAccount();
+        account.applyDelta(Money.of(balance, "EUR"));
+        return account;
+    }
+
     @Test
-    void createsAccountAsActiveWithGivenInitialBalance() {
-        Account account = new Account(UUID.randomUUID(), "Cuenta nómina", AccountType.BANK, Money.of("1000.00", "EUR"));
+    void newAccountIsActiveAndStartsAtZero() {
+        Account account = newEurAccount();
 
         assertThat(account.getStatus()).isEqualTo(AccountStatus.ACTIVE);
-        assertThat(account.balance()).isEqualTo(Money.of("1000.00", "EUR"));
+        assertThat(account.balance()).isEqualTo(Money.zero(EUR));
     }
 
     @Test
     void renameUpdatesName() {
-        Account account = new Account(UUID.randomUUID(), "Antiguo nombre", AccountType.CASH, Money.zero(java.util.Currency.getInstance("EUR")));
+        Account account = newEurAccount();
 
         account.rename("Nuevo nombre");
 
@@ -29,7 +43,7 @@ class AccountTest {
 
     @Test
     void allowsValidStatusTransition() {
-        Account account = new Account(UUID.randomUUID(), "Cuenta", AccountType.BANK, Money.zero(java.util.Currency.getInstance("EUR")));
+        Account account = newEurAccount();
 
         account.changeStatus(AccountStatus.ARCHIVED);
 
@@ -38,7 +52,7 @@ class AccountTest {
 
     @Test
     void applyDeltaUpdatesBalance() {
-        Account account = new Account(UUID.randomUUID(), "Cuenta", AccountType.BANK, Money.of("100.00", "EUR"));
+        Account account = newEurAccountWith("100.00");
 
         account.applyDelta(Money.of("-30.50", "EUR"));
 
@@ -47,15 +61,15 @@ class AccountTest {
 
     @Test
     void applyDeltaRejectsOtherCurrency() {
-        Account account = new Account(UUID.randomUUID(), "Cuenta", AccountType.BANK, Money.of("100.00", "EUR"));
+        Account account = newEurAccountWith("100.00");
 
         assertThatThrownBy(() -> account.applyDelta(Money.of("10.00", "USD")))
-                .isInstanceOf(com.fincore.shared.money.CurrencyMismatchException.class);
+                .isInstanceOf(CurrencyMismatchException.class);
     }
 
     @Test
     void applyDeltaRejectsNonActiveAccount() {
-        Account account = new Account(UUID.randomUUID(), "Cuenta", AccountType.BANK, Money.of("100.00", "EUR"));
+        Account account = newEurAccountWith("100.00");
         account.changeStatus(AccountStatus.ARCHIVED);
 
         assertThatThrownBy(() -> account.applyDelta(Money.of("10.00", "EUR")))
@@ -64,7 +78,7 @@ class AccountTest {
 
     @Test
     void rejectsTransitionOutOfClosed() {
-        Account account = new Account(UUID.randomUUID(), "Cuenta", AccountType.BANK, Money.zero(java.util.Currency.getInstance("EUR")));
+        Account account = newEurAccount();
         account.changeStatus(AccountStatus.CLOSED);
 
         assertThatThrownBy(() -> account.changeStatus(AccountStatus.ACTIVE))

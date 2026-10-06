@@ -95,7 +95,40 @@ class TransactionControllerIT {
                 .andExpect(jsonPath("$.balance").value(100.00));
         mockMvc.perform(get("/api/v1/transactions").param("accountId", accountId.toString())
                         .header("X-User-Id", ownerId.toString()))
-                .andExpect(jsonPath("$.totalElements").value(0));
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void initialBalanceIsRecordedAsAnOpeningAdjustment() throws Exception {
+        UUID accountId = createAccount(ownerId, "250.00");
+
+        mockMvc.perform(get("/api/v1/transactions").param("accountId", accountId.toString())
+                        .header("X-User-Id", ownerId.toString()))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].type").value("ADJUSTMENT"))
+                .andExpect(jsonPath("$.content[0].amount").value(250.00))
+                .andExpect(jsonPath("$.content[0].metadata.reason").value("OPENING_BALANCE"));
+    }
+
+    @Test
+    void balanceAlwaysEqualsTheSumOfItsMovements() throws Exception {
+        UUID accountId = createAccount(ownerId, "1000.00");
+        postTransaction(ownerId, accountId, TransactionType.EXPENSE, "120.35", "EUR").andExpect(status().isCreated());
+        postTransaction(ownerId, accountId, TransactionType.INCOME, "40.10", "EUR").andExpect(status().isCreated());
+        postTransaction(ownerId, accountId, TransactionType.EXPENSE, "0.01", "EUR").andExpect(status().isCreated());
+
+        String movements = mockMvc.perform(get("/api/v1/transactions").param("accountId", accountId.toString())
+                        .param("size", "100").header("X-User-Id", ownerId.toString()))
+                .andReturn().getResponse().getContentAsString();
+        BigDecimal sum = BigDecimal.ZERO;
+        for (var movement : objectMapper.readTree(movements).get("content")) {
+            sum = sum.add(movement.get("amount").decimalValue());
+        }
+        String account = mockMvc.perform(get("/api/v1/accounts/" + accountId).header("X-User-Id", ownerId.toString()))
+                .andReturn().getResponse().getContentAsString();
+
+        assertThat(objectMapper.readTree(account).get("balance").decimalValue()).isEqualByComparingTo(sum);
+        assertThat(sum).isEqualByComparingTo("919.74");
     }
 
     @Test
