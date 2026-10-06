@@ -118,6 +118,41 @@ class AccountControllerIT {
     }
 
     @Test
+    void frameworkErrorsUseTheCommonErrorFormat() throws Exception {
+        mockMvc.perform(get("/api/v1/accounts"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("MISSING_HEADER"))
+                .andExpect(jsonPath("$.path").value("/api/v1/accounts"))
+                .andExpect(jsonPath("$.timestamp").exists());
+
+        mockMvc.perform(post("/api/v1/accounts")
+                        .header("X-User-Id", ownerId.toString())
+                        .contentType("application/json")
+                        .content("{\"name\":\"X\",\"type\":\"NOPE\",\"currencyCode\":\"EUR\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("MALFORMED_REQUEST"));
+
+        mockMvc.perform(post("/api/v1/accounts")
+                        .header("X-User-Id", ownerId.toString())
+                        .contentType("application/json")
+                        .content("{esto no es json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("MALFORMED_REQUEST"));
+
+        mockMvc.perform(get("/api/v1/accounts/no-es-un-uuid").header("X-User-Id", ownerId.toString()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+
+        mockMvc.perform(delete("/api/v1/accounts").header("X-User-Id", ownerId.toString()))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"));
+
+        mockMvc.perform(get("/api/v1/transactions").header("X-User-Id", ownerId.toString()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BAD_REQUEST"));
+    }
+
+    @Test
     void rejectsUnknownCurrencyCode() throws Exception {
         CreateAccountRequest request = new CreateAccountRequest("Cuenta", AccountType.CASH, "ZZZ", null);
 
