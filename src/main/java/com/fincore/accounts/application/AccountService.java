@@ -8,6 +8,7 @@ import com.fincore.accounts.infrastructure.web.dto.UpdateAccountRequest;
 import com.fincore.shared.money.Money;
 import com.fincore.users.application.UnknownOwnerException;
 import com.fincore.users.application.UserQueryService;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,7 +37,7 @@ public class AccountService {
         Money initialBalance = Money.of(initialAmount, Money.currencyFor(request.currencyCode()));
 
         Account account = new Account(ownerId, request.name(), request.type(), initialBalance);
-        return accountRepository.save(account);
+        return saveOrFailIfNameTaken(account);
     }
 
     @Transactional(readOnly = true)
@@ -56,7 +57,7 @@ public class AccountService {
         Account account = findByIdOrThrow(accountId);
         requireOwnership(account, requesterId);
         account.rename(request.name());
-        return account;
+        return saveOrFailIfNameTaken(account);
     }
 
     @Transactional
@@ -65,6 +66,18 @@ public class AccountService {
         requireOwnership(account, requesterId);
         account.changeStatus(targetStatus);
         return account;
+    }
+
+    /**
+     * El índice único es quien garantiza que no se repita el nombre. Se fuerza el flush aquí para
+     * que la violación salte dentro del servicio y no al confirmar la transacción, donde acabaría en un 500.
+     */
+    private Account saveOrFailIfNameTaken(Account account) {
+        try {
+            return accountRepository.saveAndFlush(account);
+        } catch (DataIntegrityViolationException e) {
+            throw new AccountNameAlreadyExistsException(account.getName());
+        }
     }
 
     private Account findByIdOrThrow(UUID accountId) {

@@ -1,6 +1,7 @@
 package com.fincore.shared.web;
 
 import com.fincore.accounts.application.AccountAccessDeniedException;
+import com.fincore.accounts.application.AccountNameAlreadyExistsException;
 import com.fincore.accounts.application.AccountNotFoundException;
 import com.fincore.users.application.UnknownOwnerException;
 import com.fincore.accounts.domain.AccountNotActiveException;
@@ -54,6 +55,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleAccessDenied(AccountAccessDeniedException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiErrorResponse.of(
                 HttpStatus.FORBIDDEN.value(), "ACCESS_DENIED", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(AccountNameAlreadyExistsException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccountNameTaken(AccountNameAlreadyExistsException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.of(
+                HttpStatus.CONFLICT.value(), "ACCOUNT_NAME_ALREADY_EXISTS", ex.getMessage(), request.getRequestURI()));
     }
 
     @ExceptionHandler(AccountNotActiveException.class)

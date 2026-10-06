@@ -90,6 +90,34 @@ class AccountControllerIT {
     }
 
     @Test
+    void rejectsDuplicateOpenAccountNameButAllowsReusingAClosedOne() throws Exception {
+        UUID first = createAccount(ownerId, "Ahorro");
+        UUID other = createAccount(ownerId, "Otra");
+
+        mockMvc.perform(post("/api/v1/accounts")
+                        .header("X-User-Id", ownerId.toString())
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(
+                                new CreateAccountRequest("Ahorro", AccountType.SAVINGS, "EUR", null))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ACCOUNT_NAME_ALREADY_EXISTS"));
+
+        mockMvc.perform(put("/api/v1/accounts/" + other)
+                        .header("X-User-Id", ownerId.toString())
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new UpdateAccountRequest("Ahorro"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("ACCOUNT_NAME_ALREADY_EXISTS"));
+
+        mockMvc.perform(patch("/api/v1/accounts/" + first + "/status")
+                        .header("X-User-Id", ownerId.toString())
+                        .contentType("application/json")
+                        .content(objectMapper.writeValueAsString(new ChangeAccountStatusRequest(AccountStatus.CLOSED))))
+                .andExpect(status().isOk());
+        createAccount(ownerId, "Ahorro");
+    }
+
+    @Test
     void rejectsUnknownCurrencyCode() throws Exception {
         CreateAccountRequest request = new CreateAccountRequest("Cuenta", AccountType.CASH, "ZZZ", null);
 
