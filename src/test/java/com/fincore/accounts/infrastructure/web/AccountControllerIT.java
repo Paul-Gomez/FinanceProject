@@ -1,24 +1,14 @@
 package com.fincore.accounts.infrastructure.web;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fincore.support.IntegrationTest;
 import com.fincore.accounts.infrastructure.web.dto.ChangeAccountStatusRequest;
 import com.fincore.accounts.infrastructure.web.dto.CreateAccountRequest;
 import com.fincore.accounts.infrastructure.web.dto.UpdateAccountRequest;
 import com.fincore.accounts.domain.AccountStatus;
 import com.fincore.accounts.domain.AccountType;
 import com.fincore.users.domain.AppUser;
-import com.fincore.users.infrastructure.persistence.AppUserJpaRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.web.servlet.MockMvc;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -26,29 +16,7 @@ import java.util.UUID;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Testcontainers
-class AccountControllerIT {
-
-    @Container
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
-
-    @DynamicPropertySource
-    static void configureDatasource(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword);
-    }
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    @Autowired
-    private AppUserJpaRepository userRepository;
+class AccountControllerIT extends IntegrationTest {
 
     private UUID ownerId;
     private UUID otherOwnerId;
