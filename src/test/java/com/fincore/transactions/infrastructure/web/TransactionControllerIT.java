@@ -50,7 +50,7 @@ class TransactionControllerIT extends IntegrationTest {
         postTransaction(ownerId, accountId, TransactionType.EXPENSE, "100.25", "EUR").andExpect(status().isCreated())
                 .andExpect(jsonPath("$.amount").value(-100.25));
 
-        mockMvc.perform(get("/api/v1/accounts/" + accountId).header("X-User-Id", ownerId.toString()))
+        mockMvc.perform(get("/api/v1/accounts/" + accountId).header("Authorization", bearer(ownerId)))
                 .andExpect(jsonPath("$.balance").value(1150.25));
     }
 
@@ -62,10 +62,10 @@ class TransactionControllerIT extends IntegrationTest {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("CURRENCY_MISMATCH"));
 
-        mockMvc.perform(get("/api/v1/accounts/" + accountId).header("X-User-Id", ownerId.toString()))
+        mockMvc.perform(get("/api/v1/accounts/" + accountId).header("Authorization", bearer(ownerId)))
                 .andExpect(jsonPath("$.balance").value(100.00));
         mockMvc.perform(get("/api/v1/transactions").param("accountId", accountId.toString())
-                        .header("X-User-Id", ownerId.toString()))
+                        .header("Authorization", bearer(ownerId)))
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
 
@@ -87,7 +87,7 @@ class TransactionControllerIT extends IntegrationTest {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value("CATEGORY_KIND_MISMATCH"));
 
-        mockMvc.perform(get("/api/v1/accounts/" + accountId).header("X-User-Id", ownerId.toString()))
+        mockMvc.perform(get("/api/v1/accounts/" + accountId).header("Authorization", bearer(ownerId)))
                 .andExpect(jsonPath("$.balance").value(100.00));
     }
 
@@ -109,10 +109,10 @@ class TransactionControllerIT extends IntegrationTest {
         UUID mine = createCategory(ownerId, "Mascotas " + UUID.randomUUID());
         postWithCategory(ownerId, accountId, TransactionType.EXPENSE, mine).andExpect(status().isCreated());
 
-        mockMvc.perform(delete("/api/v1/categories/" + mine).header("X-User-Id", ownerId.toString()))
+        mockMvc.perform(delete("/api/v1/categories/" + mine).header("Authorization", bearer(ownerId)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("CATEGORY_IN_USE"));
-        mockMvc.perform(get("/api/v1/categories/" + mine).header("X-User-Id", ownerId.toString()))
+        mockMvc.perform(get("/api/v1/categories/" + mine).header("Authorization", bearer(ownerId)))
                 .andExpect(status().isOk());
     }
 
@@ -121,7 +121,7 @@ class TransactionControllerIT extends IntegrationTest {
         UUID accountId = createAccount(ownerId, "250.00");
 
         mockMvc.perform(get("/api/v1/transactions").param("accountId", accountId.toString())
-                        .header("X-User-Id", ownerId.toString()))
+                        .header("Authorization", bearer(ownerId)))
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].type").value("ADJUSTMENT"))
                 .andExpect(jsonPath("$.content[0].amount").value(250.00))
@@ -136,13 +136,13 @@ class TransactionControllerIT extends IntegrationTest {
         postTransaction(ownerId, accountId, TransactionType.EXPENSE, "0.01", "EUR").andExpect(status().isCreated());
 
         String movements = mockMvc.perform(get("/api/v1/transactions").param("accountId", accountId.toString())
-                        .param("size", "100").header("X-User-Id", ownerId.toString()))
+                        .param("size", "100").header("Authorization", bearer(ownerId)))
                 .andReturn().getResponse().getContentAsString();
         BigDecimal sum = BigDecimal.ZERO;
         for (var movement : objectMapper.readTree(movements).get("content")) {
             sum = sum.add(movement.get("amount").decimalValue());
         }
-        String account = mockMvc.perform(get("/api/v1/accounts/" + accountId).header("X-User-Id", ownerId.toString()))
+        String account = mockMvc.perform(get("/api/v1/accounts/" + accountId).header("Authorization", bearer(ownerId)))
                 .andReturn().getResponse().getContentAsString();
 
         assertThat(objectMapper.readTree(account).get("balance").decimalValue()).isEqualByComparingTo(sum);
@@ -157,7 +157,7 @@ class TransactionControllerIT extends IntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_AMOUNT_PRECISION"));
 
-        mockMvc.perform(get("/api/v1/accounts/" + accountId).header("X-User-Id", ownerId.toString()))
+        mockMvc.perform(get("/api/v1/accounts/" + accountId).header("Authorization", bearer(ownerId)))
                 .andExpect(jsonPath("$.balance").value(100.00));
     }
 
@@ -173,7 +173,7 @@ class TransactionControllerIT extends IntegrationTest {
     void rejectsMovementOnArchivedAccount() throws Exception {
         UUID accountId = createAccount(ownerId, "100.00");
         mockMvc.perform(patch("/api/v1/accounts/" + accountId + "/status")
-                .header("X-User-Id", ownerId.toString())
+                .header("Authorization", bearer(ownerId))
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(new ChangeAccountStatusRequest(AccountStatus.ARCHIVED))));
 
@@ -200,7 +200,7 @@ class TransactionControllerIT extends IntegrationTest {
 
         mockMvc.perform(get("/api/v1/transactions").param("accountId", accountId.toString())
                         .param("page", "0").param("size", "2")
-                        .header("X-User-Id", ownerId.toString()))
+                        .header("Authorization", bearer(ownerId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(2))
                 .andExpect(jsonPath("$.totalElements").value(5))
@@ -224,7 +224,7 @@ class TransactionControllerIT extends IntegrationTest {
         for (Future<Integer> result : results) {
             assertThat(result.get()).isEqualTo(201);
         }
-        mockMvc.perform(get("/api/v1/accounts/" + accountId).header("X-User-Id", ownerId.toString()))
+        mockMvc.perform(get("/api/v1/accounts/" + accountId).header("Authorization", bearer(ownerId)))
                 .andExpect(jsonPath("$.balance").value(800.00));
     }
 
@@ -233,7 +233,7 @@ class TransactionControllerIT extends IntegrationTest {
         CreateTransactionRequest request = new CreateTransactionRequest(
                 accountId, type, new BigDecimal(amount), currency, null, "test", null, null, null);
         return mockMvc.perform(post("/api/v1/transactions")
-                .header("X-User-Id", requester.toString())
+                .header("Authorization", bearer(requester))
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(request)));
     }
@@ -243,14 +243,14 @@ class TransactionControllerIT extends IntegrationTest {
         CreateTransactionRequest request = new CreateTransactionRequest(
                 accountId, type, new BigDecimal("10.00"), "EUR", categoryId, "test", null, null, null);
         return mockMvc.perform(post("/api/v1/transactions")
-                .header("X-User-Id", requester.toString())
+                .header("Authorization", bearer(requester))
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(request)));
     }
 
     private UUID createCategory(UUID owner, String name) throws Exception {
         String body = mockMvc.perform(post("/api/v1/categories")
-                        .header("X-User-Id", owner.toString())
+                        .header("Authorization", bearer(owner))
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(
                                 new CreateCategoryRequest(name, CategoryKind.EXPENSE, null, null, null))))
@@ -260,7 +260,7 @@ class TransactionControllerIT extends IntegrationTest {
     }
 
     private UUID systemCategoryId(String name) throws Exception {
-        String body = mockMvc.perform(get("/api/v1/categories").header("X-User-Id", ownerId.toString()))
+        String body = mockMvc.perform(get("/api/v1/categories").header("Authorization", bearer(ownerId)))
                 .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         for (var category : objectMapper.readTree(body)) {
             if (category.get("system").asBoolean() && category.get("name").asText().equals(name)) {
@@ -274,7 +274,7 @@ class TransactionControllerIT extends IntegrationTest {
         CreateAccountRequest request = new CreateAccountRequest(
                 "Cuenta " + UUID.randomUUID(), AccountType.BANK, "EUR", new BigDecimal(initialBalance));
         String response = mockMvc.perform(post("/api/v1/accounts")
-                        .header("X-User-Id", owner.toString())
+                        .header("Authorization", bearer(owner))
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())

@@ -33,7 +33,7 @@ class CategoryControllerIT extends IntegrationTest {
 
     @Test
     void listsSystemCategoriesForAnyUser() throws Exception {
-        mockMvc.perform(get("/api/v1/categories").header("X-User-Id", userId.toString()))
+        mockMvc.perform(get("/api/v1/categories").header("Authorization", bearer(userId)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.name == 'Alimentación')].system").value(true))
                 .andExpect(jsonPath("$[?(@.name == 'Nómina')].kind").value("INCOME"));
@@ -42,7 +42,7 @@ class CategoryControllerIT extends IntegrationTest {
     @Test
     void filtersByKind() throws Exception {
         String body = mockMvc.perform(get("/api/v1/categories").param("kind", "INCOME")
-                        .header("X-User-Id", userId.toString()))
+                        .header("Authorization", bearer(userId)))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
 
@@ -58,9 +58,9 @@ class CategoryControllerIT extends IntegrationTest {
                 .andExpect(jsonPath("$.system").value(false))
                 .andExpect(jsonPath("$.color").value("#112233"));
 
-        mockMvc.perform(get("/api/v1/categories").header("X-User-Id", userId.toString()))
+        mockMvc.perform(get("/api/v1/categories").header("Authorization", bearer(userId)))
                 .andExpect(jsonPath("$[?(@.name == '" + name + "')]").isNotEmpty());
-        mockMvc.perform(get("/api/v1/categories").header("X-User-Id", otherUserId.toString()))
+        mockMvc.perform(get("/api/v1/categories").header("Authorization", bearer(otherUserId)))
                 .andExpect(jsonPath("$[?(@.name == '" + name + "')]").isEmpty());
     }
 
@@ -82,13 +82,13 @@ class CategoryControllerIT extends IntegrationTest {
         UUID systemId = findSystemCategoryId("Ocio");
 
         mockMvc.perform(put("/api/v1/categories/" + systemId)
-                        .header("X-User-Id", userId.toString())
+                        .header("Authorization", bearer(userId))
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(new UpdateCategoryRequest("Otro", null, null))))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("CATEGORY_READ_ONLY"));
 
-        mockMvc.perform(delete("/api/v1/categories/" + systemId).header("X-User-Id", userId.toString()))
+        mockMvc.perform(delete("/api/v1/categories/" + systemId).header("Authorization", bearer(userId)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("CATEGORY_READ_ONLY"));
     }
@@ -97,9 +97,9 @@ class CategoryControllerIT extends IntegrationTest {
     void cannotTouchSomeoneElsesCategory() throws Exception {
         UUID mine = createAndGetId(userId, "Privada " + UUID.randomUUID(), CategoryKind.EXPENSE);
 
-        mockMvc.perform(get("/api/v1/categories/" + mine).header("X-User-Id", otherUserId.toString()))
+        mockMvc.perform(get("/api/v1/categories/" + mine).header("Authorization", bearer(otherUserId)))
                 .andExpect(status().isForbidden());
-        mockMvc.perform(delete("/api/v1/categories/" + mine).header("X-User-Id", otherUserId.toString()))
+        mockMvc.perform(delete("/api/v1/categories/" + mine).header("Authorization", bearer(otherUserId)))
                 .andExpect(status().isForbidden());
     }
 
@@ -108,16 +108,16 @@ class CategoryControllerIT extends IntegrationTest {
         UUID id = createAndGetId(userId, "Vieja " + UUID.randomUUID(), CategoryKind.EXPENSE);
 
         mockMvc.perform(put("/api/v1/categories/" + id)
-                        .header("X-User-Id", userId.toString())
+                        .header("Authorization", bearer(userId))
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(new UpdateCategoryRequest("Nueva " + id, "#ABCDEF", "star"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.color").value("#ABCDEF"))
                 .andExpect(jsonPath("$.icon").value("star"));
 
-        mockMvc.perform(delete("/api/v1/categories/" + id).header("X-User-Id", userId.toString()))
+        mockMvc.perform(delete("/api/v1/categories/" + id).header("Authorization", bearer(userId)))
                 .andExpect(status().isNoContent());
-        mockMvc.perform(get("/api/v1/categories/" + id).header("X-User-Id", userId.toString()))
+        mockMvc.perform(get("/api/v1/categories/" + id).header("Authorization", bearer(userId)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("CATEGORY_NOT_FOUND"));
     }
@@ -167,7 +167,7 @@ class CategoryControllerIT extends IntegrationTest {
         UUID parent = createAndGetId(userId, "Viajes " + UUID.randomUUID(), CategoryKind.EXPENSE);
         createChild(userId, "Hoteles", CategoryKind.EXPENSE, parent).andExpect(status().isCreated());
 
-        mockMvc.perform(delete("/api/v1/categories/" + parent).header("X-User-Id", userId.toString()))
+        mockMvc.perform(delete("/api/v1/categories/" + parent).header("Authorization", bearer(userId)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("CATEGORY_IN_USE"));
     }
@@ -181,14 +181,14 @@ class CategoryControllerIT extends IntegrationTest {
 
     private ResultActions createChild(UUID user, String name, CategoryKind kind, UUID parentId) throws Exception {
         return mockMvc.perform(post("/api/v1/categories")
-                .header("X-User-Id", user.toString())
+                .header("Authorization", bearer(user))
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(new CreateCategoryRequest(name, kind, parentId, null, null))));
     }
 
     private ResultActions create(UUID user, String name, CategoryKind kind, String color) throws Exception {
         return mockMvc.perform(post("/api/v1/categories")
-                .header("X-User-Id", user.toString())
+                .header("Authorization", bearer(user))
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(new CreateCategoryRequest(name, kind, null, color, null))));
     }
@@ -200,7 +200,7 @@ class CategoryControllerIT extends IntegrationTest {
     }
 
     private UUID findSystemCategoryId(String name) throws Exception {
-        String body = mockMvc.perform(get("/api/v1/categories").header("X-User-Id", userId.toString()))
+        String body = mockMvc.perform(get("/api/v1/categories").header("Authorization", bearer(userId)))
                 .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         for (JsonNode category : objectMapper.readTree(body)) {
             if (category.get("system").asBoolean() && category.get("name").asText().equals(name)) {

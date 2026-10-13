@@ -27,10 +27,14 @@ server:
 
 fincore:
   security:
+    # Sin valor por defecto a propósito: si no se define JWT_SECRET la aplicación no arranca.
     jwt:
-      secret: ${JWT_SECRET:change-me-in-env-this-is-a-dev-only-default-secret-value}
-      access-token-ttl-minutes: ${JWT_ACCESS_TTL_MIN:15}
-      refresh-token-ttl-days: ${JWT_REFRESH_TTL_DAYS:30}
+      secret: ${JWT_SECRET:}
+      access-token-ttl: ${JWT_ACCESS_TTL:15m}
+      refresh-token-ttl: ${JWT_REFRESH_TTL:30d}
+    bcrypt-strength: ${BCRYPT_STRENGTH:12}
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
 
 management:
   endpoints:

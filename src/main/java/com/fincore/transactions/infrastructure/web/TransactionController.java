@@ -1,5 +1,6 @@
 package com.fincore.transactions.infrastructure.web;
 
+import com.fincore.identity.infrastructure.security.CurrentUserId;
 import com.fincore.shared.idempotency.IdempotencyService;
 import com.fincore.shared.web.PageResponse;
 import com.fincore.transactions.application.TransactionService;
@@ -24,8 +25,6 @@ import java.util.UUID;
 @RequestMapping("/api/v1/transactions")
 public class TransactionController {
 
-    // TODO(identity): sustituir esta cabecera por el usuario autenticado (JWT) cuando exista el módulo identity.
-    private static final String OWNER_HEADER = "X-User-Id";
     private static final int MAX_PAGE_SIZE = 100;
 
     private static final String IDEMPOTENCY_HEADER = "Idempotency-Key";
@@ -44,7 +43,7 @@ public class TransactionController {
 
     @PostMapping
     public ResponseEntity<TransactionResponse> create(
-            @RequestHeader(OWNER_HEADER) UUID requesterId,
+            @CurrentUserId UUID requesterId,
             @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String idempotencyKey,
             @Valid @RequestBody CreateTransactionRequest request) {
         IdempotencyService.Outcome<TransactionResponse> outcome = idempotencyService.execute(
@@ -61,7 +60,7 @@ public class TransactionController {
 
     @GetMapping
     public PageResponse<TransactionResponse> list(
-            @RequestHeader(OWNER_HEADER) UUID requesterId,
+            @CurrentUserId UUID requesterId,
             @RequestParam UUID accountId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {

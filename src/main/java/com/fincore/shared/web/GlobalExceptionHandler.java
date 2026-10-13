@@ -3,10 +3,13 @@ package com.fincore.shared.web;
 import com.fincore.accounts.application.AccountAccessDeniedException;
 import com.fincore.accounts.application.AccountNameAlreadyExistsException;
 import com.fincore.accounts.application.AccountNotFoundException;
-import com.fincore.users.application.UnknownOwnerException;
 import com.fincore.accounts.domain.AccountBalanceNotZeroException;
 import com.fincore.accounts.domain.AccountNotActiveException;
 import com.fincore.accounts.domain.InvalidAccountStatusTransitionException;
+import com.fincore.identity.application.EmailAlreadyRegisteredException;
+import com.fincore.identity.application.InvalidCredentialsException;
+import com.fincore.identity.application.InvalidPasswordException;
+import com.fincore.users.application.UserNotFoundException;
 import com.fincore.categories.application.CategoryAccessDeniedException;
 import com.fincore.categories.application.CategoryAlreadyExistsException;
 import com.fincore.categories.application.CategoryInUseException;
@@ -74,16 +77,34 @@ public class GlobalExceptionHandler {
                 "El parámetro '%s' no tiene un valor válido".formatted(ex.getName()), request.getRequestURI()));
     }
 
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidCredentials(InvalidCredentialsException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiErrorResponse.of(
+                HttpStatus.UNAUTHORIZED.value(), "INVALID_CREDENTIALS", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(EmailAlreadyRegisteredException.class)
+    public ResponseEntity<ApiErrorResponse> handleEmailAlreadyRegistered(EmailAlreadyRegisteredException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.of(
+                HttpStatus.CONFLICT.value(), "EMAIL_ALREADY_REGISTERED", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(InvalidPasswordException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidPassword(InvalidPasswordException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiErrorResponse.of(
+                HttpStatus.BAD_REQUEST.value(), "INVALID_PASSWORD", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleUserNotFound(UserNotFoundException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiErrorResponse.of(
+                HttpStatus.NOT_FOUND.value(), "USER_NOT_FOUND", ex.getMessage(), request.getRequestURI()));
+    }
+
     @ExceptionHandler(AccountNotFoundException.class)
     public ResponseEntity<ApiErrorResponse> handleAccountNotFound(AccountNotFoundException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiErrorResponse.of(
                 HttpStatus.NOT_FOUND.value(), "ACCOUNT_NOT_FOUND", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(UnknownOwnerException.class)
-    public ResponseEntity<ApiErrorResponse> handleUnknownOwner(UnknownOwnerException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiErrorResponse.of(
-                HttpStatus.BAD_REQUEST.value(), "UNKNOWN_OWNER", ex.getMessage(), request.getRequestURI()));
     }
 
     @ExceptionHandler(AccountAccessDeniedException.class)

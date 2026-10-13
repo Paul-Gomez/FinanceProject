@@ -5,8 +5,6 @@ import com.fincore.categories.domain.CategoryKind;
 import com.fincore.categories.infrastructure.persistence.CategoryJpaRepository;
 import com.fincore.categories.infrastructure.web.dto.CreateCategoryRequest;
 import com.fincore.categories.infrastructure.web.dto.UpdateCategoryRequest;
-import com.fincore.users.application.UnknownOwnerException;
-import com.fincore.users.application.UserQueryService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,19 +16,13 @@ import java.util.UUID;
 public class CategoryService {
 
     private final CategoryJpaRepository categoryRepository;
-    private final UserQueryService userQueryService;
 
-    public CategoryService(CategoryJpaRepository categoryRepository, UserQueryService userQueryService) {
+    public CategoryService(CategoryJpaRepository categoryRepository) {
         this.categoryRepository = categoryRepository;
-        this.userQueryService = userQueryService;
     }
 
     @Transactional
     public Category create(UUID ownerId, CreateCategoryRequest request) {
-        if (!userQueryService.existsById(ownerId)) {
-            throw new UnknownOwnerException(ownerId);
-        }
-
         if (request.parentId() != null) {
             requireValidParent(request.parentId(), ownerId, request);
         }

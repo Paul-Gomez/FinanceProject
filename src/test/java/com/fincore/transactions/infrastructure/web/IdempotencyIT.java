@@ -178,7 +178,7 @@ class IdempotencyIT extends IntegrationTest {
         CreateTransactionRequest request = new CreateTransactionRequest(
                 accountId, TransactionType.EXPENSE, new BigDecimal(amount), "EUR", null, "test", null, null, null);
         return mockMvc.perform(post("/api/v1/transactions")
-                .header("X-User-Id", requester.toString())
+                .header("Authorization", bearer(requester))
                 .header("Idempotency-Key", key)
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(request)));
@@ -189,7 +189,7 @@ class IdempotencyIT extends IntegrationTest {
         CreateTransferRequest request = new CreateTransferRequest(
                 from, to, new BigDecimal(amount), "EUR", "test", null, null);
         return mockMvc.perform(post("/api/v1/transfers")
-                .header("X-User-Id", ownerId.toString())
+                .header("Authorization", bearer(ownerId))
                 .header("Idempotency-Key", key)
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(request)));
@@ -200,13 +200,13 @@ class IdempotencyIT extends IntegrationTest {
     }
 
     private void assertBalance(UUID owner, UUID accountId, double expected) throws Exception {
-        mockMvc.perform(get("/api/v1/accounts/" + accountId).header("X-User-Id", owner.toString()))
+        mockMvc.perform(get("/api/v1/accounts/" + accountId).header("Authorization", bearer(owner)))
                 .andExpect(jsonPath("$.balance").value(expected));
     }
 
     private void assertMovementCount(UUID owner, UUID accountId, int expected) throws Exception {
         mockMvc.perform(get("/api/v1/transactions").param("accountId", accountId.toString())
-                        .header("X-User-Id", owner.toString()))
+                        .header("Authorization", bearer(owner)))
                 .andExpect(jsonPath("$.totalElements").value(expected));
     }
 
@@ -214,7 +214,7 @@ class IdempotencyIT extends IntegrationTest {
         CreateAccountRequest request = new CreateAccountRequest(
                 "Cuenta " + UUID.randomUUID(), AccountType.BANK, "EUR", new BigDecimal(initialBalance));
         String response = mockMvc.perform(post("/api/v1/accounts")
-                        .header("X-User-Id", owner.toString())
+                        .header("Authorization", bearer(owner))
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())

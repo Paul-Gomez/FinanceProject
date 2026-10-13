@@ -1,5 +1,6 @@
 package com.fincore.transactions.infrastructure.web;
 
+import com.fincore.identity.infrastructure.security.CurrentUserId;
 import com.fincore.shared.idempotency.IdempotencyService;
 import com.fincore.transactions.application.TransferService;
 import com.fincore.transactions.infrastructure.web.dto.CreateTransferRequest;
@@ -19,9 +20,6 @@ import java.util.UUID;
 @RequestMapping("/api/v1/transfers")
 public class TransferController {
 
-    // TODO(identity): sustituir esta cabecera por el usuario autenticado (JWT) cuando exista el módulo identity.
-    private static final String OWNER_HEADER = "X-User-Id";
-
     private static final String IDEMPOTENCY_HEADER = "Idempotency-Key";
     private static final String REPLAYED_HEADER = "Idempotent-Replayed";
 
@@ -38,7 +36,7 @@ public class TransferController {
 
     @PostMapping
     public ResponseEntity<TransferResponse> create(
-            @RequestHeader(OWNER_HEADER) UUID requesterId,
+            @CurrentUserId UUID requesterId,
             @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String idempotencyKey,
             @Valid @RequestBody CreateTransferRequest request) {
         IdempotencyService.Outcome<TransferResponse> outcome = idempotencyService.execute(

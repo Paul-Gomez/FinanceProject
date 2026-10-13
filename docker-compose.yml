@@ -26,7 +26,7 @@ services:
       DB_NAME: ${DB_NAME:-fincore}
       DB_USER: ${DB_USER:-fincore}
       DB_PASSWORD: ${DB_PASSWORD:-fincore}
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en el fichero .env (al menos 32 caracteres)}
     ports:
       - "8080:8080"
 

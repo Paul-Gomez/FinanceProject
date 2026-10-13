@@ -6,8 +6,6 @@ import com.fincore.accounts.infrastructure.persistence.AccountJpaRepository;
 import com.fincore.accounts.infrastructure.web.dto.CreateAccountRequest;
 import com.fincore.accounts.infrastructure.web.dto.UpdateAccountRequest;
 import com.fincore.shared.money.Money;
-import com.fincore.users.application.UnknownOwnerException;
-import com.fincore.users.application.UserQueryService;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -21,22 +19,16 @@ import java.util.UUID;
 public class AccountService {
 
     private final AccountJpaRepository accountRepository;
-    private final UserQueryService userQueryService;
     private final ApplicationEventPublisher eventPublisher;
 
-    public AccountService(AccountJpaRepository accountRepository, UserQueryService userQueryService,
+    public AccountService(AccountJpaRepository accountRepository,
                           ApplicationEventPublisher eventPublisher) {
         this.accountRepository = accountRepository;
-        this.userQueryService = userQueryService;
         this.eventPublisher = eventPublisher;
     }
 
     @Transactional
     public Account create(UUID ownerId, CreateAccountRequest request) {
-        if (!userQueryService.existsById(ownerId)) {
-            throw new UnknownOwnerException(ownerId);
-        }
-
         BigDecimal initialAmount = request.initialBalance() != null ? request.initialBalance() : BigDecimal.ZERO;
         Money initialBalance = Money.ofExact(initialAmount, Money.currencyFor(request.currencyCode()));
 
