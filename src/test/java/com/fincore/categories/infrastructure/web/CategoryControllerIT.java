@@ -123,17 +123,74 @@ class CategoryControllerIT extends IntegrationTest {
     }
 
     @Test
+    void createsSubcategoryUnderASystemCategory() throws Exception {
+        UUID food = findSystemCategoryId("Alimentación");
+
+        createChild(userId, "Supermercado", CategoryKind.EXPENSE, food)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.parentId").value(food.toString()))
+                .andExpect(jsonPath("$.system").value(false));
+    }
+
+    @Test
+    void sameNameIsAllowedUnderDifferentParents() throws Exception {
+        createChild(userId, "Otros", CategoryKind.EXPENSE, findSystemCategoryId("Ocio")).andExpect(status().isCreated());
+        createChild(userId, "Otros", CategoryKind.EXPENSE, findSystemCategoryId("Compras")).andExpect(status().isCreated());
+        createChild(userId, "otros", CategoryKind.EXPENSE, findSystemCategoryId("Compras"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void rejectsSecondLevelAndKindMismatch() throws Exception {
+        UUID transport = findSystemCategoryId("Transporte");
+        String child = createChild(userId, "Gasolina", CategoryKind.EXPENSE, transport)
+                .andReturn().getResponse().getContentAsString();
+        UUID childId = UUID.fromString(objectMapper.readTree(child).get("id").asText());
+
+        createChild(userId, "Repsol", CategoryKind.EXPENSE, childId)
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("INVALID_CATEGORY_PARENT"));
+        createChild(userId, "Bonus", CategoryKind.INCOME, transport)
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value("INVALID_CATEGORY_PARENT"));
+    }
+
+    @Test
+    void cannotUseSomeoneElsesCategoryAsParent() throws Exception {
+        UUID foreign = createAndGetId(otherUserId, "Ajena " + UUID.randomUUID(), CategoryKind.EXPENSE);
+
+        createChild(userId, "Hija", CategoryKind.EXPENSE, foreign).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void parentWithSubcategoriesCannotBeDeleted() throws Exception {
+        UUID parent = createAndGetId(userId, "Viajes " + UUID.randomUUID(), CategoryKind.EXPENSE);
+        createChild(userId, "Hoteles", CategoryKind.EXPENSE, parent).andExpect(status().isCreated());
+
+        mockMvc.perform(delete("/api/v1/categories/" + parent).header("X-User-Id", userId.toString()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CATEGORY_IN_USE"));
+    }
+
+    @Test
     void rejectsInvalidColor() throws Exception {
         create(userId, "Color malo " + UUID.randomUUID(), CategoryKind.EXPENSE, "rojo")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
     }
 
+    private ResultActions createChild(UUID user, String name, CategoryKind kind, UUID parentId) throws Exception {
+        return mockMvc.perform(post("/api/v1/categories")
+                .header("X-User-Id", user.toString())
+                .contentType("application/json")
+                .content(objectMapper.writeValueAsString(new CreateCategoryRequest(name, kind, parentId, null, null))));
+    }
+
     private ResultActions create(UUID user, String name, CategoryKind kind, String color) throws Exception {
         return mockMvc.perform(post("/api/v1/categories")
                 .header("X-User-Id", user.toString())
                 .contentType("application/json")
-                .content(objectMapper.writeValueAsString(new CreateCategoryRequest(name, kind, color, null))));
+                .content(objectMapper.writeValueAsString(new CreateCategoryRequest(name, kind, null, color, null))));
     }
 
     private UUID createAndGetId(UUID user, String name, CategoryKind kind) throws Exception {
@@ -144,7 +201,7 @@ class CategoryControllerIT extends IntegrationTest {
 
     private UUID findSystemCategoryId(String name) throws Exception {
         String body = mockMvc.perform(get("/api/v1/categories").header("X-User-Id", userId.toString()))
-                .andReturn().getResponse().getContentAsString();
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         for (JsonNode category : objectMapper.readTree(body)) {
             if (category.get("system").asBoolean() && category.get("name").asText().equals(name)) {
                 return UUID.fromString(category.get("id").asText());

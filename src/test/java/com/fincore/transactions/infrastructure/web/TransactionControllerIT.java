@@ -253,7 +253,7 @@ class TransactionControllerIT extends IntegrationTest {
                         .header("X-User-Id", owner.toString())
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(
-                                new CreateCategoryRequest(name, CategoryKind.EXPENSE, null, null))))
+                                new CreateCategoryRequest(name, CategoryKind.EXPENSE, null, null, null))))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         return UUID.fromString(objectMapper.readTree(body).get("id").asText());
