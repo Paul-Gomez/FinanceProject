@@ -10,6 +10,7 @@ public class CategoryMapper {
     public CategoryResponse toResponse(Category category) {
         return new CategoryResponse(
                 category.getId(),
+                category.getParentId(),
                 category.isSystem(),
                 category.getName(),
                 category.getKind(),

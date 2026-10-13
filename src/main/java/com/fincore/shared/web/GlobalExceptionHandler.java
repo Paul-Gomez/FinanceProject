@@ -13,6 +13,7 @@ import com.fincore.categories.application.CategoryInUseException;
 import com.fincore.categories.application.CategoryKindMismatchException;
 import com.fincore.categories.application.CategoryNotFoundException;
 import com.fincore.categories.application.CategoryReadOnlyException;
+import com.fincore.categories.application.InvalidCategoryParentException;
 import com.fincore.shared.idempotency.IdempotencyKeyReusedException;
 import com.fincore.shared.idempotency.InvalidIdempotencyKeyException;
 import com.fincore.shared.money.CurrencyMismatchException;
@@ -137,6 +138,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleCategoryKindMismatch(CategoryKindMismatchException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiErrorResponse.of(
                 HttpStatus.UNPROCESSABLE_ENTITY.value(), "CATEGORY_KIND_MISMATCH", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(InvalidCategoryParentException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidCategoryParent(InvalidCategoryParentException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiErrorResponse.of(
+                HttpStatus.UNPROCESSABLE_ENTITY.value(), "INVALID_CATEGORY_PARENT", ex.getMessage(), request.getRequestURI()));
     }
 
     @ExceptionHandler(CategoryInUseException.class)

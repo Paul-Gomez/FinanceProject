@@ -7,6 +7,7 @@ import java.util.UUID;
 
 public record CategoryResponse(
         UUID id,
+        UUID parentId,
         boolean system,
         String name,
         CategoryKind kind,

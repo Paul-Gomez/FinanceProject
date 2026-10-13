@@ -31,8 +31,25 @@ public class CategoryService {
             throw new UnknownOwnerException(ownerId);
         }
 
-        Category category = new Category(ownerId, request.name().trim(), request.kind(), request.color(), request.icon());
+        if (request.parentId() != null) {
+            requireValidParent(request.parentId(), ownerId, request);
+        }
+
+        Category category = new Category(ownerId, request.parentId(), request.name().trim(),
+                request.kind(), request.color(), request.icon());
         return saveOrFailIfDuplicated(category);
+    }
+
+    /** Solo un nivel de subcategorías, y del mismo tipo que el padre (no hay "Nómina > Supermercado"). */
+    private void requireValidParent(UUID parentId, UUID ownerId, CreateCategoryRequest request) {
+        Category parent = getVisibleTo(parentId, ownerId);
+        if (!parent.isRoot()) {
+            throw new InvalidCategoryParentException("una subcategoría no puede tener a su vez subcategorías");
+        }
+        if (parent.getKind() != request.kind()) {
+            throw new InvalidCategoryParentException(
+                    "la categoría padre es de tipo %s y la nueva de tipo %s".formatted(parent.getKind(), request.kind()));
+        }
     }
 
     @Transactional(readOnly = true)

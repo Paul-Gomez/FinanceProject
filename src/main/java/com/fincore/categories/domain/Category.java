@@ -24,6 +24,9 @@ public class Category {
     @Column(name = "owner_id", updatable = false)
     private UUID ownerId;
 
+    @Column(name = "parent_id", updatable = false)
+    private UUID parentId;
+
     @Column(nullable = false)
     private String name;
 
@@ -46,7 +49,12 @@ public class Category {
     }
 
     public Category(UUID ownerId, String name, CategoryKind kind, String color, String icon) {
+        this(ownerId, null, name, kind, color, icon);
+    }
+
+    public Category(UUID ownerId, UUID parentId, String name, CategoryKind kind, String color, String icon) {
         this.ownerId = ownerId;
+        this.parentId = parentId;
         this.name = name;
         this.kind = kind;
         this.color = color != null ? color : DEFAULT_COLOR;
@@ -60,6 +68,10 @@ public class Category {
         this.color = color != null ? color : DEFAULT_COLOR;
         this.icon = icon;
         this.updatedAt = Instant.now();
+    }
+
+    public boolean isRoot() {
+        return parentId == null;
     }
 
     public boolean isSystem() {
@@ -76,6 +88,10 @@ public class Category {
 
     public UUID getOwnerId() {
         return ownerId;
+    }
+
+    public UUID getParentId() {
+        return parentId;
     }
 
     public String getName() {
