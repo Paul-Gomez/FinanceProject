@@ -9,6 +9,8 @@ import com.fincore.accounts.domain.InvalidAccountStatusTransitionException;
 import com.fincore.identity.application.EmailAlreadyRegisteredException;
 import com.fincore.identity.application.InvalidCredentialsException;
 import com.fincore.identity.application.InvalidPasswordException;
+import com.fincore.identity.application.InvalidRefreshTokenException;
+import com.fincore.identity.application.SessionNotFoundException;
 import com.fincore.users.application.UserNotFoundException;
 import com.fincore.categories.application.CategoryAccessDeniedException;
 import com.fincore.categories.application.CategoryAlreadyExistsException;
@@ -81,6 +83,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleInvalidCredentials(InvalidCredentialsException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiErrorResponse.of(
                 HttpStatus.UNAUTHORIZED.value(), "INVALID_CREDENTIALS", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidRefreshToken(InvalidRefreshTokenException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiErrorResponse.of(
+                HttpStatus.UNAUTHORIZED.value(), "INVALID_REFRESH_TOKEN", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(SessionNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleSessionNotFound(SessionNotFoundException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiErrorResponse.of(
+                HttpStatus.NOT_FOUND.value(), "SESSION_NOT_FOUND", ex.getMessage(), request.getRequestURI()));
     }
 
     @ExceptionHandler(EmailAlreadyRegisteredException.class)

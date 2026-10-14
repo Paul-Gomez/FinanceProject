@@ -23,6 +23,9 @@ public class UserSession {
     @Column(name = "refresh_token_hash", nullable = false)
     private String refreshTokenHash;
 
+    @Column(name = "previous_refresh_token_hash")
+    private String previousRefreshTokenHash;
+
     @Column(name = "device_name")
     private String deviceName;
 
@@ -64,6 +67,13 @@ public class UserSession {
 
     public boolean isActiveAt(Instant now) {
         return revokedAt == null && expiresAt.isAfter(now);
+    }
+
+    /** El token presentado pasa a ser el "anterior" y deja de valer; el nuevo es el único válido. */
+    public void rotate(String newRefreshTokenHash, Instant now) {
+        this.previousRefreshTokenHash = this.refreshTokenHash;
+        this.refreshTokenHash = newRefreshTokenHash;
+        this.lastUsedAt = now;
     }
 
     public void revoke(String reason, Instant now) {
