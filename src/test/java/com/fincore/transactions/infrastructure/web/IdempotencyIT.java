@@ -30,6 +30,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class IdempotencyIT extends IntegrationTest {
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbc;
+
     private UUID ownerId;
     private UUID otherOwnerId;
 
@@ -160,6 +163,20 @@ class IdempotencyIT extends IntegrationTest {
         }
         assertBalance(ownerId, from, 450.00);
         assertBalance(ownerId, to, 50.00);
+    }
+
+    @Test
+    void anExpiredKeyCanBeReused() throws Exception {
+        UUID account = createAccount(ownerId, "100.00");
+        String key = UUID.randomUUID().toString();
+        postExpense(ownerId, account, "10.00", key).andExpect(status().isCreated());
+
+        jdbc.update("UPDATE idempotency_keys SET expires_at = now() - interval '1 minute' WHERE idempotency_key = ?", key);
+
+        MockHttpServletResponse reused = postExpense(ownerId, account, "25.00", key).andReturn().getResponse();
+        assertThat(reused.getStatus()).isEqualTo(201);
+        assertThat(reused.getHeader("Idempotent-Replayed")).isNull();
+        assertBalance(ownerId, account, 65.00);
     }
 
     @Test

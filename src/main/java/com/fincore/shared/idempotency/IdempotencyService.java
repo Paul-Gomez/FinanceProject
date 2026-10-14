@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
@@ -30,10 +31,12 @@ public class IdempotencyService {
     private final IdempotencyRepository repository;
     private final ObjectMapper objectMapper;
     private final ObjectMapper hashMapper;
+    private final Clock clock;
 
-    public IdempotencyService(IdempotencyRepository repository, ObjectMapper objectMapper) {
+    public IdempotencyService(IdempotencyRepository repository, ObjectMapper objectMapper, Clock clock) {
         this.repository = repository;
         this.objectMapper = objectMapper;
+        this.clock = clock;
         // Orden fijo en los mapas para que el hash no cambie si el cliente reordena las claves de metadata.
         this.hashMapper = objectMapper.copy().configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
     }
@@ -52,7 +55,10 @@ public class IdempotencyService {
         }
 
         String hash = hash(endpoint, requestPayload);
-        int inserted = repository.insertIfAbsent(userId, key, hash, Instant.now().plus(RETENTION));
+        Instant now = clock.instant();
+        // Una clave caducada se trata como si no existiera, aunque el job de limpieza aún no la haya borrado.
+        repository.deleteIfExpired(userId, key, now);
+        int inserted = repository.insertIfAbsent(userId, key, hash, now.plus(RETENTION));
 
         if (inserted == 0) {
             IdempotencyRecord existing = repository.findByUserIdAndKey(userId, key).orElseThrow();

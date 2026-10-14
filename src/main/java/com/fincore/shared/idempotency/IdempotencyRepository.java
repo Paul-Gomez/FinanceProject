@@ -32,5 +32,16 @@ public interface IdempotencyRepository extends JpaRepository<IdempotencyRecord, 
     int storeResponse(@Param("userId") UUID userId, @Param("key") String key,
                       @Param("status") int status, @Param("body") String body);
 
+    @Modifying
+    @Query(value = """
+            DELETE FROM idempotency_keys
+            WHERE user_id = :userId AND idempotency_key = :key AND expires_at < :now
+            """, nativeQuery = true)
+    int deleteIfExpired(@Param("userId") UUID userId, @Param("key") String key, @Param("now") Instant now);
+
+    @Modifying
+    @Query(value = "DELETE FROM idempotency_keys WHERE expires_at < :now", nativeQuery = true)
+    int deleteAllExpired(@Param("now") Instant now);
+
     Optional<IdempotencyRecord> findByUserIdAndKey(UUID userId, String key);
 }
