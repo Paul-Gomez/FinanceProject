@@ -8,7 +8,11 @@ import com.fincore.users.domain.AppUser;
 import com.fincore.users.infrastructure.persistence.AppUserJpaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -29,7 +33,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(IntegrationTest.TestBeans.class)
 public abstract class IntegrationTest {
+
+    @TestConfiguration
+    static class TestBeans {
+        @Bean
+        @Primary
+        CapturingIdentityMailer capturingIdentityMailer() {
+            return new CapturingIdentityMailer();
+        }
+    }
 
     private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
@@ -57,6 +71,9 @@ public abstract class IntegrationTest {
 
     @Autowired
     protected AppUserJpaRepository userRepository;
+
+    @Autowired
+    protected CapturingIdentityMailer mailer;
 
     @Autowired
     private SessionTokenIssuer tokenIssuer;
