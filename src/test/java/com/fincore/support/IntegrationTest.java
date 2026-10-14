@@ -61,6 +61,8 @@ public abstract class IntegrationTest {
         registry.add("fincore.security.bcrypt-strength", () -> "4");
         // Todos los tests llaman desde 127.0.0.1: el límite por IP se prueba aparte, con test unitario.
         registry.add("fincore.security.rate-limit.auth-requests-per-minute", () -> "100000");
+        // Los jobs se lanzan a mano desde los tests que los prueban; que no corran solos por medio.
+        registry.add("fincore.jobs.enabled", () -> "false");
     }
 
     @Autowired
