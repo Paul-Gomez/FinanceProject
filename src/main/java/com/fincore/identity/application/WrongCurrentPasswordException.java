@@ -1,8 +1,11 @@
 package com.fincore.identity.application;
 
-public class WrongCurrentPasswordException extends RuntimeException {
+import com.fincore.shared.error.BusinessException;
+import com.fincore.shared.error.ErrorType;
+
+public class WrongCurrentPasswordException extends BusinessException {
 
     public WrongCurrentPasswordException() {
-        super("La contraseña actual no es correcta");
+        super(ErrorType.BAD_REQUEST, "WRONG_CURRENT_PASSWORD", "La contraseña actual no es correcta");
     }
 }

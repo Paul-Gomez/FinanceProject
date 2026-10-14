@@ -1,36 +1,7 @@
 package com.fincore.shared.web;
 
-import com.fincore.accounts.application.AccountAccessDeniedException;
-import com.fincore.accounts.application.AccountNameAlreadyExistsException;
-import com.fincore.accounts.application.AccountNotFoundException;
-import com.fincore.accounts.domain.AccountBalanceNotZeroException;
-import com.fincore.accounts.domain.AccountNotActiveException;
-import com.fincore.accounts.domain.InvalidAccountStatusTransitionException;
-import com.fincore.identity.application.AccountLockedException;
-import com.fincore.identity.application.EmailAlreadyRegisteredException;
-import com.fincore.identity.application.InvalidCredentialsException;
-import com.fincore.identity.application.InvalidOneTimeTokenException;
-import com.fincore.identity.application.InvalidPasswordException;
-import com.fincore.identity.application.WrongCurrentPasswordException;
-import com.fincore.identity.application.InvalidRefreshTokenException;
-import com.fincore.identity.application.SessionNotFoundException;
-import com.fincore.users.application.UserNotFoundException;
-import com.fincore.budgets.application.BudgetAlreadyExistsException;
-import com.fincore.budgets.application.BudgetNotFoundException;
-import com.fincore.categories.application.CategoryAccessDeniedException;
-import com.fincore.categories.application.CategoryAlreadyExistsException;
-import com.fincore.categories.application.CategoryInUseException;
-import com.fincore.categories.application.CategoryKindMismatchException;
-import com.fincore.categories.application.CategoryNotFoundException;
-import com.fincore.categories.application.CategoryReadOnlyException;
-import com.fincore.categories.application.InvalidCategoryParentException;
-import com.fincore.shared.idempotency.IdempotencyKeyReusedException;
-import com.fincore.shared.idempotency.InvalidIdempotencyKeyException;
-import com.fincore.shared.money.CurrencyMismatchException;
-import com.fincore.shared.money.InvalidAmountPrecisionException;
-import com.fincore.shared.money.InvalidCurrencyException;
-import com.fincore.transactions.application.SameAccountTransferException;
-import com.fincore.transactions.application.UnsupportedTransactionTypeException;
+import com.fincore.shared.error.BusinessException;
+import com.fincore.shared.error.ErrorType;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,16 +11,29 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
-import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.List;
 
+/**
+ * Traduce los errores a respuestas con el formato común. Los errores de negocio llegan todos
+ * como BusinessException con un tipo y un código, así que este manejador no necesita conocer
+ * las excepciones de cada módulo (shared no depende de los módulos, son ellos los que dependen de shared).
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ApiErrorResponse> handleBusiness(BusinessException ex, HttpServletRequest request) {
+        HttpStatus status = toHttpStatus(ex.getType());
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(status);
+        ex.responseHeaders().forEach(response::header);
+        return response.body(ApiErrorResponse.of(status.value(), ex.getCode(), ex.getMessage(), request.getRequestURI()));
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiErrorResponse> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
@@ -64,212 +48,19 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MissingRequestHeaderException.class)
     public ResponseEntity<ApiErrorResponse> handleMissingHeader(MissingRequestHeaderException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiErrorResponse.of(
-                HttpStatus.BAD_REQUEST.value(), "MISSING_HEADER",
-                "Falta la cabecera " + ex.getHeaderName(), request.getRequestURI()));
+        return badRequest("MISSING_HEADER", "Falta la cabecera " + ex.getHeaderName(), request);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiErrorResponse> handleUnreadableBody(HttpMessageNotReadableException ex, HttpServletRequest request) {
         // El mensaje original de Jackson incluye nombres de clases internas: no se devuelve al cliente.
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiErrorResponse.of(
-                HttpStatus.BAD_REQUEST.value(), "MALFORMED_REQUEST",
-                "El cuerpo de la petición no es un JSON válido o contiene valores no permitidos", request.getRequestURI()));
+        return badRequest("MALFORMED_REQUEST",
+                "El cuerpo de la petición no es un JSON válido o contiene valores no permitidos", request);
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiErrorResponse.of(
-                HttpStatus.BAD_REQUEST.value(), "INVALID_PARAMETER",
-                "El parámetro '%s' no tiene un valor válido".formatted(ex.getName()), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(InvalidCredentialsException.class)
-    public ResponseEntity<ApiErrorResponse> handleInvalidCredentials(InvalidCredentialsException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiErrorResponse.of(
-                HttpStatus.UNAUTHORIZED.value(), "INVALID_CREDENTIALS", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(AccountLockedException.class)
-    public ResponseEntity<ApiErrorResponse> handleAccountLocked(AccountLockedException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
-                .body(ApiErrorResponse.of(HttpStatus.TOO_MANY_REQUESTS.value(), "ACCOUNT_LOCKED",
-                        ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(InvalidOneTimeTokenException.class)
-    public ResponseEntity<ApiErrorResponse> handleInvalidOneTimeToken(InvalidOneTimeTokenException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiErrorResponse.of(
-                HttpStatus.BAD_REQUEST.value(), "INVALID_TOKEN", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(WrongCurrentPasswordException.class)
-    public ResponseEntity<ApiErrorResponse> handleWrongCurrentPassword(WrongCurrentPasswordException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiErrorResponse.of(
-                HttpStatus.BAD_REQUEST.value(), "WRONG_CURRENT_PASSWORD", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(InvalidRefreshTokenException.class)
-    public ResponseEntity<ApiErrorResponse> handleInvalidRefreshToken(InvalidRefreshTokenException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiErrorResponse.of(
-                HttpStatus.UNAUTHORIZED.value(), "INVALID_REFRESH_TOKEN", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(SessionNotFoundException.class)
-    public ResponseEntity<ApiErrorResponse> handleSessionNotFound(SessionNotFoundException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiErrorResponse.of(
-                HttpStatus.NOT_FOUND.value(), "SESSION_NOT_FOUND", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(EmailAlreadyRegisteredException.class)
-    public ResponseEntity<ApiErrorResponse> handleEmailAlreadyRegistered(EmailAlreadyRegisteredException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.of(
-                HttpStatus.CONFLICT.value(), "EMAIL_ALREADY_REGISTERED", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(InvalidPasswordException.class)
-    public ResponseEntity<ApiErrorResponse> handleInvalidPassword(InvalidPasswordException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiErrorResponse.of(
-                HttpStatus.BAD_REQUEST.value(), "INVALID_PASSWORD", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(UserNotFoundException.class)
-    public ResponseEntity<ApiErrorResponse> handleUserNotFound(UserNotFoundException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiErrorResponse.of(
-                HttpStatus.NOT_FOUND.value(), "USER_NOT_FOUND", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(AccountNotFoundException.class)
-    public ResponseEntity<ApiErrorResponse> handleAccountNotFound(AccountNotFoundException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiErrorResponse.of(
-                HttpStatus.NOT_FOUND.value(), "ACCOUNT_NOT_FOUND", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(AccountAccessDeniedException.class)
-    public ResponseEntity<ApiErrorResponse> handleAccessDenied(AccountAccessDeniedException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiErrorResponse.of(
-                HttpStatus.FORBIDDEN.value(), "ACCESS_DENIED", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(AccountNameAlreadyExistsException.class)
-    public ResponseEntity<ApiErrorResponse> handleAccountNameTaken(AccountNameAlreadyExistsException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.of(
-                HttpStatus.CONFLICT.value(), "ACCOUNT_NAME_ALREADY_EXISTS", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(AccountBalanceNotZeroException.class)
-    public ResponseEntity<ApiErrorResponse> handleBalanceNotZero(AccountBalanceNotZeroException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.of(
-                HttpStatus.CONFLICT.value(), "ACCOUNT_BALANCE_NOT_ZERO", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(AccountNotActiveException.class)
-    public ResponseEntity<ApiErrorResponse> handleAccountNotActive(AccountNotActiveException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.of(
-                HttpStatus.CONFLICT.value(), "ACCOUNT_NOT_ACTIVE", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(CurrencyMismatchException.class)
-    public ResponseEntity<ApiErrorResponse> handleCurrencyMismatch(CurrencyMismatchException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiErrorResponse.of(
-                HttpStatus.UNPROCESSABLE_ENTITY.value(), "CURRENCY_MISMATCH", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(BudgetNotFoundException.class)
-    public ResponseEntity<ApiErrorResponse> handleBudgetNotFound(BudgetNotFoundException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiErrorResponse.of(
-                HttpStatus.NOT_FOUND.value(), "BUDGET_NOT_FOUND", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(BudgetAlreadyExistsException.class)
-    public ResponseEntity<ApiErrorResponse> handleBudgetAlreadyExists(BudgetAlreadyExistsException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.of(
-                HttpStatus.CONFLICT.value(), "BUDGET_ALREADY_EXISTS", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(CategoryNotFoundException.class)
-    public ResponseEntity<ApiErrorResponse> handleCategoryNotFound(CategoryNotFoundException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiErrorResponse.of(
-                HttpStatus.NOT_FOUND.value(), "CATEGORY_NOT_FOUND", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(CategoryAccessDeniedException.class)
-    public ResponseEntity<ApiErrorResponse> handleCategoryAccessDenied(CategoryAccessDeniedException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiErrorResponse.of(
-                HttpStatus.FORBIDDEN.value(), "ACCESS_DENIED", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(CategoryReadOnlyException.class)
-    public ResponseEntity<ApiErrorResponse> handleCategoryReadOnly(CategoryReadOnlyException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiErrorResponse.of(
-                HttpStatus.FORBIDDEN.value(), "CATEGORY_READ_ONLY", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(CategoryKindMismatchException.class)
-    public ResponseEntity<ApiErrorResponse> handleCategoryKindMismatch(CategoryKindMismatchException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiErrorResponse.of(
-                HttpStatus.UNPROCESSABLE_ENTITY.value(), "CATEGORY_KIND_MISMATCH", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(InvalidCategoryParentException.class)
-    public ResponseEntity<ApiErrorResponse> handleInvalidCategoryParent(InvalidCategoryParentException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiErrorResponse.of(
-                HttpStatus.UNPROCESSABLE_ENTITY.value(), "INVALID_CATEGORY_PARENT", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(CategoryInUseException.class)
-    public ResponseEntity<ApiErrorResponse> handleCategoryInUse(CategoryInUseException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.of(
-                HttpStatus.CONFLICT.value(), "CATEGORY_IN_USE", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(CategoryAlreadyExistsException.class)
-    public ResponseEntity<ApiErrorResponse> handleCategoryAlreadyExists(CategoryAlreadyExistsException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.of(
-                HttpStatus.CONFLICT.value(), "CATEGORY_ALREADY_EXISTS", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(IdempotencyKeyReusedException.class)
-    public ResponseEntity<ApiErrorResponse> handleIdempotencyKeyReused(IdempotencyKeyReusedException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiErrorResponse.of(
-                HttpStatus.UNPROCESSABLE_ENTITY.value(), "IDEMPOTENCY_KEY_REUSED", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(InvalidIdempotencyKeyException.class)
-    public ResponseEntity<ApiErrorResponse> handleInvalidIdempotencyKey(InvalidIdempotencyKeyException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiErrorResponse.of(
-                HttpStatus.BAD_REQUEST.value(), "INVALID_IDEMPOTENCY_KEY", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(SameAccountTransferException.class)
-    public ResponseEntity<ApiErrorResponse> handleSameAccountTransfer(SameAccountTransferException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiErrorResponse.of(
-                HttpStatus.BAD_REQUEST.value(), "SAME_ACCOUNT_TRANSFER", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(InvalidAmountPrecisionException.class)
-    public ResponseEntity<ApiErrorResponse> handleInvalidAmountPrecision(InvalidAmountPrecisionException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiErrorResponse.of(
-                HttpStatus.BAD_REQUEST.value(), "INVALID_AMOUNT_PRECISION", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(InvalidCurrencyException.class)
-    public ResponseEntity<ApiErrorResponse> handleInvalidCurrency(InvalidCurrencyException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiErrorResponse.of(
-                HttpStatus.BAD_REQUEST.value(), "INVALID_CURRENCY", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(UnsupportedTransactionTypeException.class)
-    public ResponseEntity<ApiErrorResponse> handleUnsupportedType(UnsupportedTransactionTypeException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiErrorResponse.of(
-                HttpStatus.BAD_REQUEST.value(), "UNSUPPORTED_TRANSACTION_TYPE", ex.getMessage(), request.getRequestURI()));
-    }
-
-    @ExceptionHandler(InvalidAccountStatusTransitionException.class)
-    public ResponseEntity<ApiErrorResponse> handleInvalidStatusTransition(InvalidAccountStatusTransitionException ex, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.of(
-                HttpStatus.CONFLICT.value(), "INVALID_STATUS_TRANSITION", ex.getMessage(), request.getRequestURI()));
+        return badRequest("INVALID_PARAMETER", "El parámetro '%s' no tiene un valor válido".formatted(ex.getName()), request);
     }
 
     /**
@@ -290,5 +81,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ApiErrorResponse.of(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(), "INTERNAL_ERROR",
                 "Ha ocurrido un error inesperado", request.getRequestURI()));
+    }
+
+    private static ResponseEntity<ApiErrorResponse> badRequest(String code, String message, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiErrorResponse.of(HttpStatus.BAD_REQUEST.value(), code, message, request.getRequestURI()));
+    }
+
+    private static HttpStatus toHttpStatus(ErrorType type) {
+        return switch (type) {
+            case BAD_REQUEST -> HttpStatus.BAD_REQUEST;
+            case UNAUTHORIZED -> HttpStatus.UNAUTHORIZED;
+            case FORBIDDEN -> HttpStatus.FORBIDDEN;
+            case NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case CONFLICT -> HttpStatus.CONFLICT;
+            case UNPROCESSABLE -> HttpStatus.UNPROCESSABLE_ENTITY;
+            case TOO_MANY_REQUESTS -> HttpStatus.TOO_MANY_REQUESTS;
+        };
     }
 }

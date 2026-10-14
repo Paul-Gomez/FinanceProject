@@ -1,12 +1,7 @@
-package com.fincore.shared.security;
+package com.fincore.identity.infrastructure.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fincore.identity.infrastructure.persistence.UserSessionRepository;
-import com.fincore.identity.infrastructure.security.AuthRateLimitFilter;
-import com.fincore.identity.infrastructure.security.FixedWindowRateLimiter;
-import com.fincore.identity.infrastructure.security.JsonSecurityErrorHandler;
-import com.fincore.identity.infrastructure.security.JwtAuthenticationFilter;
-import com.fincore.identity.infrastructure.security.JwtService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

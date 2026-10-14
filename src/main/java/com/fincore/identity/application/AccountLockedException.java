@@ -1,17 +1,22 @@
 package com.fincore.identity.application;
 
-import java.time.Duration;
+import com.fincore.shared.error.BusinessException;
+import com.fincore.shared.error.ErrorType;
 
-public class AccountLockedException extends RuntimeException {
+import java.time.Duration;
+import java.util.Map;
+
+public class AccountLockedException extends BusinessException {
 
     private final long retryAfterSeconds;
 
     public AccountLockedException(Duration remaining) {
-        super("Demasiados intentos fallidos: la cuenta está bloqueada temporalmente");
+        super(ErrorType.TOO_MANY_REQUESTS, "ACCOUNT_LOCKED", "Demasiados intentos fallidos: la cuenta está bloqueada temporalmente");
         this.retryAfterSeconds = Math.max(1, remaining.toSeconds());
     }
 
-    public long getRetryAfterSeconds() {
-        return retryAfterSeconds;
+    @Override
+    public Map<String, String> responseHeaders() {
+        return Map.of("Retry-After", String.valueOf(retryAfterSeconds));
     }
 }

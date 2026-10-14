@@ -1,8 +1,11 @@
 package com.fincore.shared.idempotency;
 
-public class InvalidIdempotencyKeyException extends RuntimeException {
+import com.fincore.shared.error.BusinessException;
+import com.fincore.shared.error.ErrorType;
+
+public class InvalidIdempotencyKeyException extends BusinessException {
 
     public InvalidIdempotencyKeyException() {
-        super("La cabecera Idempotency-Key debe tener entre 1 y 100 caracteres");
+        super(ErrorType.BAD_REQUEST, "INVALID_IDEMPOTENCY_KEY", "La cabecera Idempotency-Key debe tener entre 1 y 100 caracteres");
     }
 }

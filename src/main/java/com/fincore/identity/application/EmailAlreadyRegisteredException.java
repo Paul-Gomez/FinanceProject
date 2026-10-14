@@ -1,8 +1,11 @@
 package com.fincore.identity.application;
 
-public class EmailAlreadyRegisteredException extends RuntimeException {
+import com.fincore.shared.error.BusinessException;
+import com.fincore.shared.error.ErrorType;
+
+public class EmailAlreadyRegisteredException extends BusinessException {
 
     public EmailAlreadyRegisteredException() {
-        super("Ya existe una cuenta con ese email");
+        super(ErrorType.CONFLICT, "EMAIL_ALREADY_REGISTERED", "Ya existe una cuenta con ese email");
     }
 }
