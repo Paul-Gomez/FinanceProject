@@ -1,5 +1,6 @@
 package com.fincore.transactions.infrastructure.web.dto;
 
+import com.fincore.transactions.application.RecordTransactionCommand;
 import com.fincore.transactions.domain.TransactionType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -23,4 +24,9 @@ public record CreateTransactionRequest(
         @Size(max = 100) String reference,
         Map<String, Object> metadata
 ) {
+
+    public RecordTransactionCommand toCommand() {
+        return new RecordTransactionCommand(accountId, type, amount, currencyCode, categoryId, description, date,
+                reference, metadata);
+    }
 }

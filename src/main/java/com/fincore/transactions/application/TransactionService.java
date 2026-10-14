@@ -9,7 +9,6 @@ import com.fincore.shared.money.Money;
 import com.fincore.transactions.domain.Transaction;
 import com.fincore.transactions.domain.TransactionType;
 import com.fincore.transactions.infrastructure.persistence.TransactionJpaRepository;
-import com.fincore.transactions.infrastructure.web.dto.CreateTransactionRequest;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -48,7 +47,7 @@ public class TransactionService {
      * o no se confirma ninguno.
      */
     @Transactional
-    public Transaction create(UUID requesterId, CreateTransactionRequest request) {
+    public Transaction create(UUID requesterId, RecordTransactionCommand request) {
         Money amount = Money.ofExact(request.amount(), Money.currencyFor(request.currencyCode()));
         LocalDate date = request.date() != null ? request.date() : LocalDate.now();
 

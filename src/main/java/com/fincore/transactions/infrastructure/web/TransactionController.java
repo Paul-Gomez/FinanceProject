@@ -49,7 +49,7 @@ public class TransactionController {
         IdempotencyService.Outcome<TransactionResponse> outcome = idempotencyService.execute(
                 requesterId, idempotencyKey, "POST /api/v1/transactions", request,
                 HttpStatus.CREATED.value(), TransactionResponse.class,
-                () -> transactionMapper.toResponse(transactionService.create(requesterId, request)));
+                () -> transactionMapper.toResponse(transactionService.create(requesterId, request.toCommand())));
 
         ResponseEntity.BodyBuilder response = ResponseEntity.status(outcome.status());
         if (outcome.replayed()) {
