@@ -3,6 +3,7 @@ package com.fincore.transactions.application;
 import com.fincore.accounts.application.AccountBalanceService;
 import com.fincore.accounts.application.AccountService;
 import com.fincore.categories.application.CategoryQueryService;
+import com.fincore.categories.application.CategoryRuleService;
 import com.fincore.categories.domain.CategoryKind;
 import com.fincore.shared.money.Money;
 import com.fincore.transactions.domain.Transaction;
@@ -25,17 +26,20 @@ public class TransactionService {
     private final AccountBalanceService accountBalanceService;
     private final AccountService accountService;
     private final CategoryQueryService categoryQueryService;
+    private final CategoryRuleService categoryRuleService;
     private final ApplicationEventPublisher eventPublisher;
 
     public TransactionService(TransactionJpaRepository transactionRepository,
                               AccountBalanceService accountBalanceService,
                               AccountService accountService,
                               CategoryQueryService categoryQueryService,
+                              CategoryRuleService categoryRuleService,
                               ApplicationEventPublisher eventPublisher) {
         this.transactionRepository = transactionRepository;
         this.accountBalanceService = accountBalanceService;
         this.accountService = accountService;
         this.categoryQueryService = categoryQueryService;
+        this.categoryRuleService = categoryRuleService;
         this.eventPublisher = eventPublisher;
     }
 
@@ -48,18 +52,24 @@ public class TransactionService {
         Money amount = Money.ofExact(request.amount(), Money.currencyFor(request.currencyCode()));
         LocalDate date = request.date() != null ? request.date() : LocalDate.now();
 
-        Transaction transaction = switch (request.type()) {
-            case INCOME -> Transaction.income(request.accountId(), amount, request.categoryId(),
-                    request.description(), date, request.reference(), request.metadata());
-            case EXPENSE -> Transaction.expense(request.accountId(), amount, request.categoryId(),
-                    request.description(), date, request.reference(), request.metadata());
-            default -> throw new UnsupportedTransactionTypeException(request.type());
-        };
-
-        if (request.categoryId() != null) {
-            CategoryKind expectedKind = request.type() == TransactionType.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
-            categoryQueryService.requireUsable(request.categoryId(), requesterId, expectedKind);
+        if (request.type() != TransactionType.INCOME && request.type() != TransactionType.EXPENSE) {
+            throw new UnsupportedTransactionTypeException(request.type());
         }
+        CategoryKind expectedKind = request.type() == TransactionType.INCOME ? CategoryKind.INCOME : CategoryKind.EXPENSE;
+
+        // Si no se indica categoría, se intenta con las reglas de categorización automática.
+        UUID categoryId = request.categoryId();
+        if (categoryId != null) {
+            categoryQueryService.requireUsable(categoryId, requesterId, expectedKind);
+        } else {
+            categoryId = categoryRuleService.suggestCategory(requesterId, request.description(), expectedKind).orElse(null);
+        }
+
+        Transaction transaction = request.type() == TransactionType.INCOME
+                ? Transaction.income(request.accountId(), amount, categoryId, request.description(), date,
+                        request.reference(), request.metadata())
+                : Transaction.expense(request.accountId(), amount, categoryId, request.description(), date,
+                        request.reference(), request.metadata());
 
         accountBalanceService.applyDelta(request.accountId(), requesterId, transaction.signedAmount());
         Transaction saved = transactionRepository.save(transaction);
