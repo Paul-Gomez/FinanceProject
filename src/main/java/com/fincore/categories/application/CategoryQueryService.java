@@ -32,6 +32,11 @@ public class CategoryQueryService {
                         Collectors.mapping(Category::getId, Collectors.toList())));
     }
 
+    @Transactional(readOnly = true)
+    public String nameOf(UUID categoryId) {
+        return categoryRepository.findById(categoryId).map(Category::getName).orElse("(categoría borrada)");
+    }
+
     /** Comprueba que el usuario puede usar la categoría y que es del tipo esperado. */
     @Transactional(readOnly = true)
     public void requireUsable(UUID categoryId, UUID userId, CategoryKind expectedKind) {
