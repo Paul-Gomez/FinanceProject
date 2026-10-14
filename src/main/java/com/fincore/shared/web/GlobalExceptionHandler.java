@@ -15,6 +15,8 @@ import com.fincore.identity.application.WrongCurrentPasswordException;
 import com.fincore.identity.application.InvalidRefreshTokenException;
 import com.fincore.identity.application.SessionNotFoundException;
 import com.fincore.users.application.UserNotFoundException;
+import com.fincore.budgets.application.BudgetAlreadyExistsException;
+import com.fincore.budgets.application.BudgetNotFoundException;
 import com.fincore.categories.application.CategoryAccessDeniedException;
 import com.fincore.categories.application.CategoryAlreadyExistsException;
 import com.fincore.categories.application.CategoryInUseException;
@@ -172,6 +174,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleCurrencyMismatch(CurrencyMismatchException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(ApiErrorResponse.of(
                 HttpStatus.UNPROCESSABLE_ENTITY.value(), "CURRENCY_MISMATCH", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(BudgetNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleBudgetNotFound(BudgetNotFoundException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiErrorResponse.of(
+                HttpStatus.NOT_FOUND.value(), "BUDGET_NOT_FOUND", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(BudgetAlreadyExistsException.class)
+    public ResponseEntity<ApiErrorResponse> handleBudgetAlreadyExists(BudgetAlreadyExistsException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiErrorResponse.of(
+                HttpStatus.CONFLICT.value(), "BUDGET_ALREADY_EXISTS", ex.getMessage(), request.getRequestURI()));
     }
 
     @ExceptionHandler(CategoryNotFoundException.class)

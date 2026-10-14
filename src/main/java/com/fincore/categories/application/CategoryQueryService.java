@@ -6,7 +6,10 @@ import com.fincore.categories.infrastructure.persistence.CategoryJpaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * API pública del módulo categories para otros módulos (transactions, budgets...).
@@ -18,6 +21,15 @@ public class CategoryQueryService {
 
     public CategoryQueryService(CategoryJpaRepository categoryRepository) {
         this.categoryRepository = categoryRepository;
+    }
+
+    /** Subcategorías visibles para el usuario agrupadas por su categoría padre (una sola consulta). */
+    @Transactional(readOnly = true)
+    public Map<UUID, List<UUID>> childrenByParent(UUID userId) {
+        return categoryRepository.findVisibleTo(userId).stream()
+                .filter(category -> !category.isRoot())
+                .collect(Collectors.groupingBy(Category::getParentId,
+                        Collectors.mapping(Category::getId, Collectors.toList())));
     }
 
     /** Comprueba que el usuario puede usar la categoría y que es del tipo esperado. */

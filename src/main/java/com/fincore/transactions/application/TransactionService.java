@@ -9,6 +9,7 @@ import com.fincore.transactions.domain.Transaction;
 import com.fincore.transactions.domain.TransactionType;
 import com.fincore.transactions.infrastructure.persistence.TransactionJpaRepository;
 import com.fincore.transactions.infrastructure.web.dto.CreateTransactionRequest;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -24,15 +25,18 @@ public class TransactionService {
     private final AccountBalanceService accountBalanceService;
     private final AccountService accountService;
     private final CategoryQueryService categoryQueryService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public TransactionService(TransactionJpaRepository transactionRepository,
                               AccountBalanceService accountBalanceService,
                               AccountService accountService,
-                              CategoryQueryService categoryQueryService) {
+                              CategoryQueryService categoryQueryService,
+                              ApplicationEventPublisher eventPublisher) {
         this.transactionRepository = transactionRepository;
         this.accountBalanceService = accountBalanceService;
         this.accountService = accountService;
         this.categoryQueryService = categoryQueryService;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -58,7 +62,10 @@ public class TransactionService {
         }
 
         accountBalanceService.applyDelta(request.accountId(), requesterId, transaction.signedAmount());
-        return transactionRepository.save(transaction);
+        Transaction saved = transactionRepository.save(transaction);
+        eventPublisher.publishEvent(new TransactionRecordedEvent(saved.getId(), requesterId, saved.getAccountId(),
+                saved.getType(), saved.getCategoryId(), saved.getTransactionDate()));
+        return saved;
     }
 
     @Transactional(readOnly = true)
