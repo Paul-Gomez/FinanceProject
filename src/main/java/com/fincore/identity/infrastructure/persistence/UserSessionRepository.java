@@ -35,6 +35,11 @@ public interface UserSessionRepository extends JpaRepository<UserSession, UUID> 
             """)
     List<UserSession> findActiveByUserId(@Param("userId") UUID userId, @Param("now") Instant now);
 
+    /** Sesiones caducadas o revocadas hace tiempo: ya no sirven para nada y solo ocupan espacio. */
+    @Modifying
+    @Query("delete from UserSession s where s.expiresAt < :cutoff or s.revokedAt < :cutoff")
+    int deleteFinishedBefore(@Param("cutoff") Instant cutoff);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             update UserSession s set s.revokedAt = :now, s.revokedReason = :reason

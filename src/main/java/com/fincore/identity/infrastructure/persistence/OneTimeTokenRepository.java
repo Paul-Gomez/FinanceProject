@@ -20,6 +20,10 @@ public interface OneTimeTokenRepository extends JpaRepository<OneTimeToken, UUID
     @Query("select t from OneTimeToken t where t.tokenHash = :hash and t.purpose = :purpose")
     Optional<OneTimeToken> findForUpdate(@Param("hash") String hash, @Param("purpose") TokenPurpose purpose);
 
+    @Modifying
+    @Query("delete from OneTimeToken t where t.expiresAt < :cutoff or t.usedAt < :cutoff")
+    int deleteFinishedBefore(@Param("cutoff") Instant cutoff);
+
     /** Al pedir un enlace nuevo, los anteriores del mismo tipo dejan de valer. */
     @Modifying(flushAutomatically = true)
     @Query("""

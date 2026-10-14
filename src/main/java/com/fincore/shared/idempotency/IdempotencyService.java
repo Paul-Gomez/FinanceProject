@@ -90,6 +90,12 @@ public class IdempotencyService {
         }
     }
 
+    /** Para el job de limpieza. */
+    @Transactional
+    public int deleteExpired() {
+        return repository.deleteAllExpired(clock.instant());
+    }
+
     private <T> T fromJson(String json, Class<T> type) {
         try {
             return objectMapper.readValue(json, type);
