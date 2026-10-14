@@ -1,5 +1,6 @@
 package com.fincore.support;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fincore.identity.application.ClientInfo;
 import com.fincore.identity.application.SessionTokenIssuer;
@@ -16,6 +17,9 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Base de los tests de integración. Un único Postgres para toda la suite (se arranca una vez y
@@ -56,6 +60,33 @@ public abstract class IntegrationTest {
     private SessionTokenIssuer tokenIssuer;
 
     private final Map<UUID, String> tokens = new HashMap<>();
+
+    protected static final String TEST_PASSWORD = "contraseña-de-test-larga";
+
+    protected record Tokens(String email, String accessToken, String refreshToken) {
+        public String bearer() {
+            return "Bearer " + accessToken;
+        }
+    }
+
+    /** Registra un usuario nuevo por la API y hace login desde el dispositivo indicado. */
+    protected Tokens registerAndLogin(String deviceName) throws Exception {
+        String email = "user-" + UUID.randomUUID() + "@fincore.test";
+        mockMvc.perform(post("/api/v1/auth/register").contentType("application/json")
+                        .content(objectMapper.writeValueAsString(Map.of("email", email, "password", TEST_PASSWORD))))
+                .andExpect(status().isCreated());
+        return login(email, TEST_PASSWORD, deviceName);
+    }
+
+    protected Tokens login(String email, String password, String deviceName) throws Exception {
+        String body = mockMvc.perform(post("/api/v1/auth/login").contentType("application/json")
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("email", email, "password", password, "deviceName", deviceName))))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        JsonNode json = objectMapper.readTree(body);
+        return new Tokens(email, json.get("accessToken").asText(), json.get("refreshToken").asText());
+    }
 
     /** Cabecera Authorization para un usuario del test: abre una sesión de verdad y la reutiliza. */
     protected String bearer(UUID userId) {
