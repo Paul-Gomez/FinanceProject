@@ -45,6 +45,8 @@ public abstract class IntegrationTest {
         registry.add("fincore.security.jwt.secret", () -> "secreto-de-tests-" + UUID.randomUUID() + UUID.randomUUID());
         // bcrypt con coste bajo: en tests no importa la seguridad del hash y el coste 12 los hace muy lentos.
         registry.add("fincore.security.bcrypt-strength", () -> "4");
+        // Todos los tests llaman desde 127.0.0.1: el límite por IP se prueba aparte, con test unitario.
+        registry.add("fincore.security.rate-limit.auth-requests-per-minute", () -> "100000");
     }
 
     @Autowired
