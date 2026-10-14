@@ -9,7 +9,9 @@ import com.fincore.accounts.domain.InvalidAccountStatusTransitionException;
 import com.fincore.identity.application.AccountLockedException;
 import com.fincore.identity.application.EmailAlreadyRegisteredException;
 import com.fincore.identity.application.InvalidCredentialsException;
+import com.fincore.identity.application.InvalidOneTimeTokenException;
 import com.fincore.identity.application.InvalidPasswordException;
+import com.fincore.identity.application.WrongCurrentPasswordException;
 import com.fincore.identity.application.InvalidRefreshTokenException;
 import com.fincore.identity.application.SessionNotFoundException;
 import com.fincore.users.application.UserNotFoundException;
@@ -92,6 +94,18 @@ public class GlobalExceptionHandler {
                 .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
                 .body(ApiErrorResponse.of(HttpStatus.TOO_MANY_REQUESTS.value(), "ACCOUNT_LOCKED",
                         ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(InvalidOneTimeTokenException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidOneTimeToken(InvalidOneTimeTokenException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiErrorResponse.of(
+                HttpStatus.BAD_REQUEST.value(), "INVALID_TOKEN", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(WrongCurrentPasswordException.class)
+    public ResponseEntity<ApiErrorResponse> handleWrongCurrentPassword(WrongCurrentPasswordException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiErrorResponse.of(
+                HttpStatus.BAD_REQUEST.value(), "WRONG_CURRENT_PASSWORD", ex.getMessage(), request.getRequestURI()));
     }
 
     @ExceptionHandler(InvalidRefreshTokenException.class)

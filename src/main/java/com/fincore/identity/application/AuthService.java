@@ -1,5 +1,6 @@
 package com.fincore.identity.application;
 
+import com.fincore.identity.domain.TokenPurpose;
 import com.fincore.users.domain.AppUser;
 import com.fincore.users.infrastructure.persistence.AppUserJpaRepository;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -19,15 +20,18 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final SessionTokenIssuer tokenIssuer;
     private final LoginAttemptService loginAttempts;
+    private final OneTimeTokenService oneTimeTokens;
     private final Clock clock;
     private final String dummyHash;
 
     public AuthService(AppUserJpaRepository userRepository, PasswordEncoder passwordEncoder,
-                       SessionTokenIssuer tokenIssuer, LoginAttemptService loginAttempts, Clock clock) {
+                       SessionTokenIssuer tokenIssuer, LoginAttemptService loginAttempts,
+                       OneTimeTokenService oneTimeTokens, Clock clock) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenIssuer = tokenIssuer;
         this.loginAttempts = loginAttempts;
+        this.oneTimeTokens = oneTimeTokens;
         this.clock = clock;
         this.dummyHash = passwordEncoder.encode("contraseña-de-relleno-para-igualar-tiempos");
     }
@@ -37,12 +41,15 @@ public class AuthService {
         String normalizedEmail = AppUser.normalizeEmail(email);
         PasswordPolicy.check(password, normalizedEmail);
 
+        AppUser user;
         try {
-            return userRepository.saveAndFlush(
+            user = userRepository.saveAndFlush(
                     new AppUser(normalizedEmail, displayName, passwordEncoder.encode(password)));
         } catch (DataIntegrityViolationException e) {
             throw new EmailAlreadyRegisteredException();
         }
+        oneTimeTokens.issue(user, TokenPurpose.EMAIL_VERIFICATION);
+        return user;
     }
 
     @Transactional

@@ -82,6 +82,11 @@ public class AppUser {
         this.passwordChangedAt = Instant.now();
     }
 
+    public void clearLoginLock() {
+        this.failedLoginAttempts = 0;
+        this.lockedUntil = null;
+    }
+
     public void markEmailVerified() {
         this.emailVerified = true;
     }
