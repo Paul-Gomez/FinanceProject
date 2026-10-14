@@ -1,6 +1,9 @@
 package com.fincore.shared.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fincore.identity.infrastructure.persistence.UserSessionRepository;
+import com.fincore.identity.infrastructure.security.AuthRateLimitFilter;
+import com.fincore.identity.infrastructure.security.FixedWindowRateLimiter;
 import com.fincore.identity.infrastructure.security.JsonSecurityErrorHandler;
 import com.fincore.identity.infrastructure.security.JwtAuthenticationFilter;
 import com.fincore.identity.infrastructure.security.JwtService;
@@ -45,7 +48,10 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtService jwtService,
                                                    UserSessionRepository sessionRepository, Clock clock,
-                                                   JsonSecurityErrorHandler errorHandler) throws Exception {
+                                                   JsonSecurityErrorHandler errorHandler, ObjectMapper objectMapper,
+                                                   @Value("${fincore.security.rate-limit.auth-requests-per-minute:20}") int authRequestsPerMinute)
+            throws Exception {
+        JwtAuthenticationFilter jwtFilter = new JwtAuthenticationFilter(jwtService, sessionRepository, clock);
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
@@ -58,8 +64,9 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(errorHandler)
                         .accessDeniedHandler(errorHandler))
-                .addFilterBefore(new JwtAuthenticationFilter(jwtService, sessionRepository, clock),
-                        UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new AuthRateLimitFilter(new FixedWindowRateLimiter(authRequestsPerMinute, clock), objectMapper),
+                        JwtAuthenticationFilter.class);
 
         return http.build();
     }

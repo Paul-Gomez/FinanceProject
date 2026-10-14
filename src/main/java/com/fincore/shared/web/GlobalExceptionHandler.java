@@ -6,6 +6,7 @@ import com.fincore.accounts.application.AccountNotFoundException;
 import com.fincore.accounts.domain.AccountBalanceNotZeroException;
 import com.fincore.accounts.domain.AccountNotActiveException;
 import com.fincore.accounts.domain.InvalidAccountStatusTransitionException;
+import com.fincore.identity.application.AccountLockedException;
 import com.fincore.identity.application.EmailAlreadyRegisteredException;
 import com.fincore.identity.application.InvalidCredentialsException;
 import com.fincore.identity.application.InvalidPasswordException;
@@ -83,6 +84,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleInvalidCredentials(InvalidCredentialsException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiErrorResponse.of(
                 HttpStatus.UNAUTHORIZED.value(), "INVALID_CREDENTIALS", ex.getMessage(), request.getRequestURI()));
+    }
+
+    @ExceptionHandler(AccountLockedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccountLocked(AccountLockedException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
+                .body(ApiErrorResponse.of(HttpStatus.TOO_MANY_REQUESTS.value(), "ACCOUNT_LOCKED",
+                        ex.getMessage(), request.getRequestURI()));
     }
 
     @ExceptionHandler(InvalidRefreshTokenException.class)
