@@ -77,22 +77,34 @@ public class ExchangeRateService {
                         rs.getBigDecimal(4), rs.getString(5)));
     }
 
-    /** Factor para pasar de una moneda a otra en una fecha (1 si son la misma). */
+    /**
+     * Factor para pasar de una moneda a otra en una fecha (1 si son la misma), o vacío si no hay tipo.
+     * Devuelve Optional en vez de lanzar: que falte un tipo es un caso normal, y una excepción que
+     * atraviesa un método @Transactional marca la transacción de quien llama como "solo rollback"
+     * aunque luego se capture, y el commit final falla con UnexpectedRollbackException.
+     */
     @Transactional(readOnly = true)
-    public BigDecimal rate(Currency from, Currency to, LocalDate date) {
+    public Optional<BigDecimal> findRate(Currency from, Currency to, LocalDate date) {
         if (from.equals(to)) {
-            return BigDecimal.ONE;
+            return Optional.of(BigDecimal.ONE);
         }
         return latestRate(from.getCurrencyCode(), to.getCurrencyCode(), date)
                 .or(() -> latestRate(to.getCurrencyCode(), from.getCurrencyCode(), date)
-                        .map(inverse -> BigDecimal.ONE.divide(inverse, PRECISION)))
-                .orElseThrow(() -> new ExchangeRateNotAvailableException(from.getCurrencyCode(), to.getCurrencyCode(), date));
+                        .map(inverse -> BigDecimal.ONE.divide(inverse, PRECISION)));
     }
 
-    /** Convierte y redondea una sola vez, al final, a los decimales de la moneda destino. */
+    /** Convierte y redondea una sola vez, al final; vacío si no hay tipo de cambio. */
+    @Transactional(readOnly = true)
+    public Optional<Money> tryConvert(Money amount, Currency target, LocalDate date) {
+        return findRate(amount.currency(), target, date)
+                .map(rate -> Money.of(amount.amount().multiply(rate, PRECISION), target));
+    }
+
+    /** Como tryConvert, pero para quien necesita el importe sí o sí: sin tipo, error 422. */
     @Transactional(readOnly = true)
     public Money convert(Money amount, Currency target, LocalDate date) {
-        return Money.of(amount.amount().multiply(rate(amount.currency(), target, date), PRECISION), target);
+        return tryConvert(amount, target, date).orElseThrow(() -> new ExchangeRateNotAvailableException(
+                amount.currency().getCurrencyCode(), target.getCurrencyCode(), date));
     }
 
     private Optional<BigDecimal> latestRate(String base, String quote, LocalDate date) {
