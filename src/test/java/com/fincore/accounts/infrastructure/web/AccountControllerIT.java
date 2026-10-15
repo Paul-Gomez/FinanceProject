@@ -103,7 +103,7 @@ class AccountControllerIT extends IntegrationTest {
                 .andExpect(status().isMethodNotAllowed())
                 .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"));
 
-        mockMvc.perform(get("/api/v1/transactions").header("Authorization", bearer(ownerId)))
+        mockMvc.perform(get("/api/v1/exchange-rates").header("Authorization", bearer(ownerId)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("BAD_REQUEST"));
     }

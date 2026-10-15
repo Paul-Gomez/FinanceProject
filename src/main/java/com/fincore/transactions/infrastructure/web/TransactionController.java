@@ -3,12 +3,15 @@ package com.fincore.transactions.infrastructure.web;
 import com.fincore.identity.infrastructure.security.CurrentUserId;
 import com.fincore.shared.idempotency.IdempotencyService;
 import com.fincore.shared.web.PageResponse;
+import com.fincore.transactions.application.TransactionSearchCriteria;
 import com.fincore.transactions.application.TransactionService;
+import com.fincore.transactions.domain.TransactionType;
 import com.fincore.transactions.infrastructure.web.dto.CreateTransactionRequest;
 import com.fincore.transactions.infrastructure.web.dto.TransactionResponse;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,6 +22,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @RestController
@@ -58,17 +63,41 @@ public class TransactionController {
         return response.body(outcome.body());
     }
 
+    public enum SortField { DATE, AMOUNT }
+
+    /**
+     * Listado de los movimientos del usuario con filtros opcionales. Solo se puede ordenar por los
+     * campos de SortField (no por cualquier propiedad que mande el cliente); a igualdad, el más
+     * reciente primero para que la paginación sea estable.
+     */
     @GetMapping
     public PageResponse<TransactionResponse> list(
             @CurrentUserId UUID requesterId,
-            @RequestParam UUID accountId,
+            @RequestParam(required = false) UUID accountId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) UUID categoryId,
+            @RequestParam(defaultValue = "true") boolean includeSubcategories,
+            @RequestParam(required = false) TransactionType type,
+            @RequestParam(required = false) BigDecimal minAmount,
+            @RequestParam(required = false) BigDecimal maxAmount,
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "false") boolean includeVoided,
+            @RequestParam(defaultValue = "DATE") SortField sort,
+            @RequestParam(defaultValue = "DESC") Sort.Direction direction,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+        Sort order = switch (sort) {
+            case DATE -> Sort.by(direction, "transactionDate");
+            case AMOUNT -> Sort.by(direction, "amount");
+        };
         PageRequest pageable = PageRequest.of(Math.max(page, 0), safeSize,
-                Sort.by(Sort.Order.desc("transactionDate"), Sort.Order.desc("createdAt")));
+                order.and(Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"))));
 
-        return PageResponse.from(transactionService.listByAccount(accountId, requesterId, pageable),
+        TransactionSearchCriteria criteria = new TransactionSearchCriteria(accountId, from, to, categoryId,
+                includeSubcategories, type, minAmount, maxAmount, q, includeVoided);
+        return PageResponse.from(transactionService.search(requesterId, criteria, pageable),
                 transactionMapper::toResponse);
     }
 }

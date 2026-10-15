@@ -2,6 +2,7 @@ package com.fincore.transactions.application;
 
 import com.fincore.accounts.application.AccountBalanceService;
 import com.fincore.accounts.application.AccountService;
+import com.fincore.accounts.domain.Account;
 import com.fincore.categories.application.CategoryQueryService;
 import com.fincore.categories.application.CategoryRuleService;
 import com.fincore.categories.domain.CategoryKind;
@@ -9,13 +10,17 @@ import com.fincore.shared.money.Money;
 import com.fincore.transactions.domain.Transaction;
 import com.fincore.transactions.domain.TransactionType;
 import com.fincore.transactions.infrastructure.persistence.TransactionJpaRepository;
+import com.fincore.transactions.infrastructure.persistence.TransactionSpecifications;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -77,9 +82,53 @@ public class TransactionService {
         return saved;
     }
 
+    /**
+     * Listado con filtros, paginado y ordenado en la base de datos. Siempre se restringe a las
+     * cuentas del usuario: si pide una cuenta concreta se comprueba que sea suya (403 si no).
+     */
     @Transactional(readOnly = true)
-    public Page<Transaction> listByAccount(UUID accountId, UUID requesterId, Pageable pageable) {
-        accountService.getForOwner(accountId, requesterId);
-        return transactionRepository.findAllByAccountId(accountId, pageable);
+    public Page<Transaction> search(UUID requesterId, TransactionSearchCriteria criteria, Pageable pageable) {
+        List<UUID> accountIds;
+        if (criteria.accountId() != null) {
+            accountService.getForOwner(criteria.accountId(), requesterId);
+            accountIds = List.of(criteria.accountId());
+        } else {
+            accountIds = accountService.listByOwner(requesterId).stream().map(Account::getId).toList();
+            if (accountIds.isEmpty()) {
+                return Page.empty(pageable);
+            }
+        }
+
+        Specification<Transaction> spec = TransactionSpecifications.inAccounts(accountIds);
+        if (!criteria.includeVoided()) {
+            spec = spec.and(TransactionSpecifications.postedOnly());
+        }
+        if (criteria.from() != null) {
+            spec = spec.and(TransactionSpecifications.dateFrom(criteria.from()));
+        }
+        if (criteria.to() != null) {
+            spec = spec.and(TransactionSpecifications.dateTo(criteria.to()));
+        }
+        if (criteria.categoryId() != null) {
+            List<UUID> categories = new ArrayList<>(List.of(criteria.categoryId()));
+            if (criteria.includeSubcategories()) {
+                categories.addAll(categoryQueryService.childrenByParent(requesterId)
+                        .getOrDefault(criteria.categoryId(), List.of()));
+            }
+            spec = spec.and(TransactionSpecifications.inCategories(categories));
+        }
+        if (criteria.type() != null) {
+            spec = spec.and(TransactionSpecifications.ofType(criteria.type()));
+        }
+        if (criteria.minAmount() != null) {
+            spec = spec.and(TransactionSpecifications.absoluteAmountAtLeast(criteria.minAmount()));
+        }
+        if (criteria.maxAmount() != null) {
+            spec = spec.and(TransactionSpecifications.absoluteAmountAtMost(criteria.maxAmount()));
+        }
+        if (criteria.text() != null && !criteria.text().isBlank()) {
+            spec = spec.and(TransactionSpecifications.containsText(criteria.text().trim()));
+        }
+        return transactionRepository.findAll(spec, pageable);
     }
 }
