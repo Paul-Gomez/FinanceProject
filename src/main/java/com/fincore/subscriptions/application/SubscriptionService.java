@@ -114,6 +114,12 @@ public class SubscriptionService {
         return chargesOf(listActive(ownerId), from, from.plusDays(Math.min(Math.max(days, 1), MAX_UPCOMING_DAYS)));
     }
 
+    /** Cobros del usuario entre dos fechas (para la previsión de gastos recurrentes). */
+    @Transactional(readOnly = true)
+    public List<UpcomingCharge> chargesBetween(UUID ownerId, LocalDate from, LocalDate to) {
+        return chargesOf(listActive(ownerId), from, to);
+    }
+
     /** Próximos cobros de todos los usuarios (para el job de recordatorios). */
     @Transactional(readOnly = true)
     public List<UpcomingCharge> upcomingForEveryone(LocalDate from, LocalDate to) {
