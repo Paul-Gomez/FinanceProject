@@ -1,6 +1,7 @@
 package com.fincore.budgets.application;
 
 import com.fincore.budgets.infrastructure.persistence.BudgetAlertRepository;
+import com.fincore.imports.application.ImportCompletedEvent;
 import com.fincore.transactions.application.TransactionRecordedEvent;
 import com.fincore.transactions.domain.TransactionType;
 import org.slf4j.Logger;
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -30,12 +32,14 @@ public class BudgetAlertService {
     private final BudgetService budgetService;
     private final BudgetAlertRepository alertRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final Clock clock;
 
     public BudgetAlertService(BudgetService budgetService, BudgetAlertRepository alertRepository,
-                              ApplicationEventPublisher eventPublisher) {
+                              ApplicationEventPublisher eventPublisher, Clock clock) {
         this.budgetService = budgetService;
         this.alertRepository = alertRepository;
         this.eventPublisher = eventPublisher;
+        this.clock = clock;
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -51,7 +55,21 @@ public class BudgetAlertService {
         }
     }
 
-    /** También lo usa el job diario, por si algún gasto entró por un camino que no publica eventos. */
+    /** Una importación mete muchos gastos de golpe sin publicar un evento por cada uno: se revisa al final. */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onImportCompleted(ImportCompletedEvent event) {
+        if (event.imported() == 0) {
+            return;
+        }
+        try {
+            checkThresholds(event.ownerId(), LocalDate.now(clock));
+        } catch (RuntimeException e) {
+            log.error("No se pudieron revisar las alertas de presupuesto tras la importación {}", event.importJobId(), e);
+        }
+    }
+
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void checkThresholds(UUID ownerId, LocalDate date) {
         for (BudgetService.BudgetView view : budgetService.listStatus(ownerId, date)) {

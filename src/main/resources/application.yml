@@ -17,6 +17,11 @@ spring:
         jdbc:
           time_zone: UTC
 
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+
   flyway:
     enabled: true
     locations: classpath:db/migration

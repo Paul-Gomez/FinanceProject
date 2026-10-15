@@ -14,6 +14,7 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.List;
 
@@ -56,6 +57,13 @@ public class GlobalExceptionHandler {
         // El mensaje original de Jackson incluye nombres de clases internas: no se devuelve al cliente.
         return badRequest("MALFORMED_REQUEST",
                 "El cuerpo de la petición no es un JSON válido o contiene valores no permitidos", request);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiErrorResponse> handleTooLarge(MaxUploadSizeExceededException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(ApiErrorResponse.of(
+                HttpStatus.PAYLOAD_TOO_LARGE.value(), "FILE_TOO_LARGE", "El fichero supera el tamaño máximo permitido",
+                request.getRequestURI()));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
