@@ -9,6 +9,6 @@ public class UserMapper {
 
     public UserResponse toResponse(AppUser user) {
         return new UserResponse(user.getId(), user.getEmail(), user.getDisplayName(), user.getRole(),
-                user.isEmailVerified(), user.getCreatedAt());
+                user.isEmailVerified(), user.getBaseCurrency(), user.getCreatedAt());
     }
 }

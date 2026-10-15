@@ -45,6 +45,9 @@ public class AppUser {
     @Column(name = "password_changed_at")
     private Instant passwordChangedAt;
 
+    @Column(name = "base_currency", nullable = false)
+    private String baseCurrency;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -61,6 +64,7 @@ public class AppUser {
         this.displayName = displayName;
         this.passwordHash = passwordHash;
         this.role = Role.USER;
+        this.baseCurrency = "EUR";
         this.createdAt = Instant.now();
         this.passwordChangedAt = passwordHash != null ? this.createdAt : null;
     }
@@ -89,6 +93,11 @@ public class AppUser {
 
     public void markEmailVerified() {
         this.emailVerified = true;
+    }
+
+    public void updateProfile(String displayName, String baseCurrency) {
+        this.displayName = displayName;
+        this.baseCurrency = baseCurrency;
     }
 
     public void promoteToAdmin() {
@@ -125,6 +134,10 @@ public class AppUser {
 
     public Instant getLockedUntil() {
         return lockedUntil;
+    }
+
+    public String getBaseCurrency() {
+        return baseCurrency;
     }
 
     public Instant getCreatedAt() {

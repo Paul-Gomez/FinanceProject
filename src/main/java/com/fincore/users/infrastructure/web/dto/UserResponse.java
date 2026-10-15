@@ -6,5 +6,5 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record UserResponse(UUID id, String email, String displayName, Role role, boolean emailVerified,
-                           Instant createdAt) {
+                           String baseCurrency, Instant createdAt) {
 }
