@@ -12,6 +12,7 @@ public class TransactionMapper {
                 transaction.getId(),
                 transaction.getAccountId(),
                 transaction.getTransferId(),
+                transaction.getRefundedTransactionId(),
                 transaction.getType(),
                 transaction.getStatus(),
                 transaction.getAmount(),

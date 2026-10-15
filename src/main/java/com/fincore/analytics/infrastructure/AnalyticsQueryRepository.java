@@ -17,6 +17,7 @@ import java.util.UUID;
  * y a Java solo llegan los totales, nunca la lista de movimientos.
  * Reglas comunes: solo movimientos POSTED del usuario, en una moneda, dentro del rango, y solo
  * ingresos y gastos (las transferencias entre cuentas propias y los ajustes no son ni una cosa ni otra).
+ * Los reembolsos cuentan como gasto negativo: un gasto de 100 con un reembolso de 30 son 70 gastados.
  * El índice (account_id, transaction_date) y el de accounts(owner_id) sirven a todas.
  */
 @Repository
@@ -27,7 +28,7 @@ public class AnalyticsQueryRepository {
             JOIN accounts a ON a.id = t.account_id
             WHERE a.owner_id = :owner
               AND t.status = 'POSTED'
-              AND t.type IN ('INCOME', 'EXPENSE')
+              AND t.type IN ('INCOME', 'EXPENSE', 'REFUND')
               AND t.currency_code = :currency
               AND t.transaction_date BETWEEN :from AND :to
             """;
@@ -58,7 +59,7 @@ public class AnalyticsQueryRepository {
     public Totals totals(UUID owner, String currency, DateRange range) {
         String sql = """
                 SELECT COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'INCOME'), 0)   AS income,
-                       COALESCE(-SUM(t.amount) FILTER (WHERE t.type = 'EXPENSE'), 0) AS expenses,
+                       COALESCE(-SUM(t.amount) FILTER (WHERE t.type IN ('EXPENSE', 'REFUND')), 0) AS expenses,
                        COUNT(*)                                                     AS movements
                 """ + SCOPE;
         return jdbc.queryForObject(sql, params(owner, currency, range), (rs, i) ->
@@ -79,7 +80,7 @@ public class AnalyticsQueryRepository {
                 )
                 SELECT m.month,
                        COALESCE(SUM(x.amount) FILTER (WHERE x.type = 'INCOME'), 0)   AS income,
-                       COALESCE(-SUM(x.amount) FILTER (WHERE x.type = 'EXPENSE'), 0) AS expenses
+                       COALESCE(-SUM(x.amount) FILTER (WHERE x.type IN ('EXPENSE', 'REFUND')), 0) AS expenses
                 FROM months m
                 LEFT JOIN movements x ON date_trunc('month', CAST(x.transaction_date AS timestamp)) = m.month
                 GROUP BY m.month
@@ -95,27 +96,31 @@ public class AnalyticsQueryRepository {
      * (útil para ver "Alimentación" entera). Los movimientos sin categoría salen con categoryId null.
      */
     public List<CategoryTotal> byCategory(UUID owner, String currency, DateRange range, String type, boolean rollUp) {
+        boolean expenses = "EXPENSE".equals(type);
+        // Fragmentos fijos elegidos aquí (nunca texto del cliente): gastos netos de reembolsos, o ingresos.
+        String types = expenses ? "'EXPENSE', 'REFUND'" : "'INCOME'";
+        String amount = expenses ? "-t.amount" : "t.amount";
         String sql = """
                 SELECT g.category_id, c.name, c.color, c.parent_id, g.total, g.movements
                 FROM (
                     SELECT CASE WHEN :rollUp THEN COALESCE(cat.parent_id, t.category_id) ELSE t.category_id END
                                AS category_id,
-                           SUM(ABS(t.amount)) AS total,
-                           COUNT(*)           AS movements
+                           SUM(%s) AS total,
+                           COUNT(*) AS movements
                     FROM transactions t
                     JOIN accounts a ON a.id = t.account_id
                     LEFT JOIN categories cat ON cat.id = t.category_id
                     WHERE a.owner_id = :owner
                       AND t.status = 'POSTED'
-                      AND t.type = :type
+                      AND t.type IN (%s)
                       AND t.currency_code = :currency
                       AND t.transaction_date BETWEEN :from AND :to
                     GROUP BY 1
                 ) g
                 LEFT JOIN categories c ON c.id = g.category_id
                 ORDER BY g.total DESC
-                """;
-        MapSqlParameterSource params = params(owner, currency, range).addValue("type", type).addValue("rollUp", rollUp);
+                """.formatted(amount, types);
+        MapSqlParameterSource params = params(owner, currency, range).addValue("rollUp", rollUp);
         return jdbc.query(sql, params, (rs, i) -> new CategoryTotal(rs.getObject("category_id", UUID.class),
                 rs.getString("name"), rs.getString("color"), rs.getObject("parent_id", UUID.class),
                 rs.getBigDecimal("total"), rs.getLong("movements")));

@@ -28,7 +28,7 @@ public class SpendingQueryRepository {
                 FROM transactions t
                 JOIN accounts a ON a.id = t.account_id
                 WHERE a.owner_id = :ownerId
-                  AND t.type = 'EXPENSE'
+                  AND t.type IN ('EXPENSE', 'REFUND')
                   AND t.status = 'POSTED'
                   AND t.category_id IS NOT NULL
                   AND t.transaction_date BETWEEN :from AND :to

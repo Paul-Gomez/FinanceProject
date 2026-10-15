@@ -13,6 +13,7 @@ public record TransactionResponse(
         UUID id,
         UUID accountId,
         UUID transferId,
+        UUID refundedTransactionId,
         TransactionType type,
         TransactionStatus status,
         BigDecimal amount,

@@ -3,18 +3,23 @@ package com.fincore.transactions.infrastructure.web;
 import com.fincore.identity.infrastructure.security.CurrentUserId;
 import com.fincore.shared.idempotency.IdempotencyService;
 import com.fincore.shared.web.PageResponse;
+import com.fincore.transactions.application.TransactionCorrectionService;
 import com.fincore.transactions.application.TransactionSearchCriteria;
 import com.fincore.transactions.application.TransactionService;
 import com.fincore.transactions.domain.TransactionType;
 import com.fincore.transactions.infrastructure.web.dto.CreateTransactionRequest;
 import com.fincore.transactions.infrastructure.web.dto.TransactionResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -38,12 +43,38 @@ public class TransactionController {
     private final TransactionService transactionService;
     private final TransactionMapper transactionMapper;
     private final IdempotencyService idempotencyService;
+    private final TransactionCorrectionService correctionService;
 
     public TransactionController(TransactionService transactionService, TransactionMapper transactionMapper,
-                                 IdempotencyService idempotencyService) {
+                                 IdempotencyService idempotencyService, TransactionCorrectionService correctionService) {
         this.transactionService = transactionService;
         this.transactionMapper = transactionMapper;
         this.idempotencyService = idempotencyService;
+        this.correctionService = correctionService;
+    }
+
+    public record RefundRequest(@Positive BigDecimal amount, LocalDate date, @Size(max = 255) String description) {
+    }
+
+    @GetMapping("/{transactionId}")
+    public TransactionResponse get(@CurrentUserId UUID requesterId, @PathVariable UUID transactionId) {
+        return transactionMapper.toResponse(correctionService.get(transactionId, requesterId));
+    }
+
+    /** No borra: anula el movimiento y revierte su efecto en el saldo. */
+    @DeleteMapping("/{transactionId}")
+    public ResponseEntity<Void> voidTransaction(@CurrentUserId UUID requesterId, @PathVariable UUID transactionId) {
+        correctionService.voidTransaction(transactionId, requesterId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Sin importe, reembolsa todo lo que quede por reembolsar. */
+    @PostMapping("/{transactionId}/refunds")
+    public ResponseEntity<TransactionResponse> refund(@CurrentUserId UUID requesterId, @PathVariable UUID transactionId,
+                                                      @Valid @RequestBody(required = false) RefundRequest request) {
+        RefundRequest body = request != null ? request : new RefundRequest(null, null, null);
+        return ResponseEntity.status(HttpStatus.CREATED).body(transactionMapper.toResponse(
+                correctionService.refund(transactionId, requesterId, body.amount(), body.date(), body.description())));
     }
 
     @PostMapping

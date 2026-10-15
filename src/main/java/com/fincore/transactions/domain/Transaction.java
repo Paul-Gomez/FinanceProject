@@ -46,6 +46,9 @@ public class Transaction {
     @Column(name = "transfer_id", updatable = false)
     private UUID transferId;
 
+    @Column(name = "refunded_transaction_id", updatable = false)
+    private UUID refundedTransactionId;
+
     @Column(name = "category_id")
     private UUID categoryId;
 
@@ -61,6 +64,9 @@ public class Transaction {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    @Column(name = "voided_at")
+    private Instant voidedAt;
 
     protected Transaction() {
     }
@@ -116,6 +122,28 @@ public class Transaction {
         return leg;
     }
 
+    /** Devolución (total o parcial) de un gasto: positivo, en la misma cuenta y con la categoría del gasto. */
+    public static Transaction refundOf(Transaction expense, Money amount, LocalDate date, String description) {
+        requirePositive(amount);
+        Transaction refund = new Transaction(expense.accountId, TransactionType.REFUND, amount, expense.categoryId,
+                description, date, null, null);
+        refund.refundedTransactionId = expense.id;
+        return refund;
+    }
+
+    /** Un movimiento no se borra: se anula. El saldo lo revierte quien llama, en la misma transacción. */
+    public void markVoided(Instant now) {
+        if (status == TransactionStatus.VOIDED) {
+            throw new InvalidTransactionOperationException("el movimiento ya está anulado");
+        }
+        this.status = TransactionStatus.VOIDED;
+        this.voidedAt = now;
+    }
+
+    public boolean isPosted() {
+        return status == TransactionStatus.POSTED;
+    }
+
     private static void requirePositive(Money amount) {
         if (!amount.isPositive()) {
             throw new IllegalArgumentException("El importe del movimiento debe ser mayor que cero");
@@ -152,6 +180,14 @@ public class Transaction {
 
     public UUID getTransferId() {
         return transferId;
+    }
+
+    public UUID getRefundedTransactionId() {
+        return refundedTransactionId;
+    }
+
+    public Instant getVoidedAt() {
+        return voidedAt;
     }
 
     public UUID getCategoryId() {
