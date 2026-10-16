@@ -5,6 +5,8 @@ import com.fincore.accounts.domain.AccountStatus;
 import com.fincore.accounts.infrastructure.persistence.AccountJpaRepository;
 import com.fincore.accounts.infrastructure.web.dto.CreateAccountRequest;
 import com.fincore.accounts.infrastructure.web.dto.UpdateAccountRequest;
+import com.fincore.shared.audit.AuditAction;
+import com.fincore.shared.audit.AuditEvent;
 import com.fincore.shared.money.Money;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -13,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -38,6 +41,8 @@ public class AccountService {
         if (!initialBalance.isZero()) {
             eventPublisher.publishEvent(new AccountOpenedEvent(account.getId(), ownerId, initialBalance));
         }
+        eventPublisher.publishEvent(AuditEvent.of(ownerId, AuditAction.CREATE_ACCOUNT, "ACCOUNT", account.getId(),
+                Map.of("type", account.getType().name(), "currency", account.balance().currency().getCurrencyCode())));
         return account;
     }
 
@@ -58,7 +63,9 @@ public class AccountService {
         Account account = findByIdOrThrow(accountId);
         requireOwnership(account, requesterId);
         account.rename(request.name());
-        return saveOrFailIfNameTaken(account);
+        Account saved = saveOrFailIfNameTaken(account);
+        eventPublisher.publishEvent(AuditEvent.of(requesterId, AuditAction.UPDATE_ACCOUNT, "ACCOUNT", accountId));
+        return saved;
     }
 
     @Transactional
@@ -66,6 +73,8 @@ public class AccountService {
         Account account = findByIdOrThrow(accountId);
         requireOwnership(account, requesterId);
         account.changeStatus(targetStatus);
+        eventPublisher.publishEvent(AuditEvent.of(requesterId, AuditAction.CHANGE_ACCOUNT_STATUS, "ACCOUNT", accountId,
+                Map.of("status", targetStatus.name())));
         return account;
     }
 

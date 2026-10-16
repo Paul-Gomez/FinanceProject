@@ -8,6 +8,8 @@ import com.fincore.bills.infrastructure.persistence.OverdueBillsRepository;
 import com.fincore.bills.infrastructure.persistence.OverdueBillsRepository.OverdueBill;
 import com.fincore.categories.application.CategoryQueryService;
 import com.fincore.categories.domain.CategoryKind;
+import com.fincore.shared.audit.AuditAction;
+import com.fincore.shared.audit.AuditEvent;
 import com.fincore.shared.error.BusinessException;
 import com.fincore.shared.error.ErrorType;
 import com.fincore.shared.money.Money;
@@ -15,6 +17,7 @@ import com.fincore.transactions.application.RecordTransactionCommand;
 import com.fincore.transactions.application.TransactionService;
 import com.fincore.transactions.domain.Transaction;
 import com.fincore.transactions.domain.TransactionType;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,10 +46,13 @@ public class BillService {
     private final OverdueBillsRepository overdueBillsRepository;
     private final CategoryQueryService categoryQueryService;
     private final TransactionService transactionService;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
     public BillService(BillRepository billRepository, OverdueBillsRepository overdueBillsRepository,
-                       CategoryQueryService categoryQueryService, TransactionService transactionService, Clock clock) {
+                       CategoryQueryService categoryQueryService, TransactionService transactionService,
+                       ApplicationEventPublisher eventPublisher, Clock clock) {
+        this.eventPublisher = eventPublisher;
         this.billRepository = billRepository;
         this.overdueBillsRepository = overdueBillsRepository;
         this.categoryQueryService = categoryQueryService;
@@ -100,6 +106,7 @@ public class BillService {
                 Map.of("billId", bill.getId().toString())));
 
         bill.markPaid(expense.getId(), clock.instant());
+        eventPublisher.publishEvent(AuditEvent.of(ownerId, AuditAction.PAY_BILL, "BILL", bill.getId()));
         return bill;
     }
 

@@ -1,8 +1,11 @@
 package com.fincore.identity.application;
 
 import com.fincore.identity.domain.TokenPurpose;
+import com.fincore.shared.audit.AuditAction;
+import com.fincore.shared.audit.AuditEvent;
 import com.fincore.users.domain.AppUser;
 import com.fincore.users.infrastructure.persistence.AppUserJpaRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,9 +20,12 @@ public class AccountSecurityService {
     private final PasswordEncoder passwordEncoder;
     private final OneTimeTokenService oneTimeTokens;
     private final SessionService sessionService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public AccountSecurityService(AppUserJpaRepository userRepository, PasswordEncoder passwordEncoder,
-                                  OneTimeTokenService oneTimeTokens, SessionService sessionService) {
+                                  OneTimeTokenService oneTimeTokens, SessionService sessionService,
+                                  ApplicationEventPublisher eventPublisher) {
+        this.eventPublisher = eventPublisher;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.oneTimeTokens = oneTimeTokens;
@@ -40,6 +46,7 @@ public class AccountSecurityService {
 
         user.changePasswordHash(passwordEncoder.encode(newPassword));
         sessionService.revokeAllExcept(userId, currentSessionId, SessionService.REASON_PASSWORD_CHANGED);
+        eventPublisher.publishEvent(AuditEvent.of(userId, AuditAction.CHANGE_PASSWORD, "USER", userId));
     }
 
     /**
@@ -63,6 +70,7 @@ public class AccountSecurityService {
         user.changePasswordHash(passwordEncoder.encode(newPassword));
         user.clearLoginLock();
         sessionService.revokeAll(userId, SessionService.REASON_PASSWORD_CHANGED);
+        eventPublisher.publishEvent(AuditEvent.of(userId, AuditAction.PASSWORD_RESET, "USER", userId));
     }
 
     @Transactional
@@ -77,5 +85,6 @@ public class AccountSecurityService {
     public void verifyEmail(String token) {
         UUID userId = oneTimeTokens.consume(token, TokenPurpose.EMAIL_VERIFICATION);
         userRepository.findById(userId).orElseThrow(InvalidOneTimeTokenException::new).markEmailVerified();
+        eventPublisher.publishEvent(AuditEvent.of(userId, AuditAction.EMAIL_VERIFIED, "USER", userId));
     }
 }

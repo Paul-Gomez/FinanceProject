@@ -5,6 +5,9 @@ import com.fincore.categories.domain.CategoryKind;
 import com.fincore.categories.infrastructure.persistence.CategoryJpaRepository;
 import com.fincore.categories.infrastructure.web.dto.CreateCategoryRequest;
 import com.fincore.categories.infrastructure.web.dto.UpdateCategoryRequest;
+import com.fincore.shared.audit.AuditAction;
+import com.fincore.shared.audit.AuditEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,8 +20,11 @@ public class CategoryService {
 
     private final CategoryJpaRepository categoryRepository;
 
-    public CategoryService(CategoryJpaRepository categoryRepository) {
+    private final ApplicationEventPublisher eventPublisher;
+
+    public CategoryService(CategoryJpaRepository categoryRepository, ApplicationEventPublisher eventPublisher) {
         this.categoryRepository = categoryRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -76,6 +82,7 @@ public class CategoryService {
         try {
             categoryRepository.delete(getEditable(categoryId, userId));
             categoryRepository.flush();
+            eventPublisher.publishEvent(AuditEvent.of(userId, AuditAction.DELETE_CATEGORY, "CATEGORY", categoryId));
         } catch (DataIntegrityViolationException e) {
             throw new CategoryInUseException(categoryId);
         }

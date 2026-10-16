@@ -6,8 +6,11 @@ import com.fincore.identity.infrastructure.security.JwtService;
 import com.fincore.shared.crypto.SecureTokens;
 import com.fincore.users.domain.AppUser;
 import com.fincore.users.infrastructure.persistence.AppUserJpaRepository;
+import com.fincore.shared.audit.AuditAction;
+import com.fincore.shared.audit.AuditEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,13 +33,15 @@ public class SessionService {
     private final UserSessionRepository sessionRepository;
     private final AppUserJpaRepository userRepository;
     private final JwtService jwtService;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
     public SessionService(UserSessionRepository sessionRepository, AppUserJpaRepository userRepository,
-                          JwtService jwtService, Clock clock) {
+                          JwtService jwtService, ApplicationEventPublisher eventPublisher, Clock clock) {
         this.sessionRepository = sessionRepository;
         this.userRepository = userRepository;
         this.jwtService = jwtService;
+        this.eventPublisher = eventPublisher;
         this.clock = clock;
     }
 
@@ -55,6 +60,8 @@ public class SessionService {
         if (current.isEmpty()) {
             sessionRepository.findByPreviousRefreshTokenHash(hash).ifPresent(reused -> {
                 reused.revoke(REASON_REFRESH_REUSED, now);
+                eventPublisher.publishEvent(AuditEvent.of(reused.getUserId(), AuditAction.REFRESH_TOKEN_REUSED,
+                        "SESSION", reused.getId()));
                 log.warn("Refresh token reutilizado: se revoca la sesión {} del usuario {}", reused.getId(), reused.getUserId());
             });
             throw new InvalidRefreshTokenException();
@@ -103,5 +110,7 @@ public class SessionService {
                 .filter(s -> s.getUserId().equals(userId))
                 .orElseThrow(() -> new SessionNotFoundException(sessionId));
         session.revoke(reason, clock.instant());
+        eventPublisher.publishEvent(AuditEvent.of(userId,
+                REASON_LOGOUT.equals(reason) ? AuditAction.LOGOUT : AuditAction.SESSION_REVOKED, "SESSION", sessionId));
     }
 }

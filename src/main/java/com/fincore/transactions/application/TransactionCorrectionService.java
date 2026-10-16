@@ -3,6 +3,8 @@ package com.fincore.transactions.application;
 import com.fincore.accounts.application.AccountBalanceService;
 import com.fincore.accounts.application.AccountService;
 import com.fincore.accounts.domain.Account;
+import com.fincore.shared.audit.AuditAction;
+import com.fincore.shared.audit.AuditEvent;
 import com.fincore.shared.error.BusinessException;
 import com.fincore.shared.error.ErrorType;
 import com.fincore.shared.money.Money;
@@ -10,6 +12,7 @@ import com.fincore.transactions.domain.InvalidTransactionOperationException;
 import com.fincore.transactions.domain.Transaction;
 import com.fincore.transactions.domain.TransactionType;
 import com.fincore.transactions.infrastructure.persistence.TransactionJpaRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +21,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -44,10 +48,13 @@ public class TransactionCorrectionService {
     private final TransactionJpaRepository repository;
     private final AccountService accountService;
     private final AccountBalanceService accountBalanceService;
+    private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
 
     public TransactionCorrectionService(TransactionJpaRepository repository, AccountService accountService,
-                                        AccountBalanceService accountBalanceService, Clock clock) {
+                                        AccountBalanceService accountBalanceService,
+                                        ApplicationEventPublisher eventPublisher, Clock clock) {
+        this.eventPublisher = eventPublisher;
         this.repository = repository;
         this.accountService = accountService;
         this.accountBalanceService = accountBalanceService;
@@ -79,6 +86,7 @@ public class TransactionCorrectionService {
             accountBalanceService.transfer(incoming.getAccountId(), outgoing.getAccountId(), requesterId,
                     incoming.signedAmount());
             legs.forEach(leg -> leg.markVoided(now));
+            eventPublisher.publishEvent(AuditEvent.of(requesterId, AuditAction.VOID_TRANSACTION, "TRANSFER", tx.getTransferId()));
             return;
         }
 
@@ -87,6 +95,8 @@ public class TransactionCorrectionService {
         }
         accountBalanceService.applyDelta(tx.getAccountId(), requesterId, tx.signedAmount().negate());
         tx.markVoided(now);
+        eventPublisher.publishEvent(AuditEvent.of(requesterId, AuditAction.VOID_TRANSACTION, "TRANSACTION", tx.getId(),
+                Map.of("type", tx.getType().name())));
     }
 
     /**
@@ -111,7 +121,10 @@ public class TransactionCorrectionService {
         Transaction refund = Transaction.refundOf(expense, requested, date != null ? date : LocalDate.now(clock),
                 description != null ? description : "Reembolso: " + (expense.getDescription() != null ? expense.getDescription() : ""));
         accountBalanceService.applyDelta(expense.getAccountId(), requesterId, requested);
-        return repository.save(refund);
+        Transaction saved = repository.save(refund);
+        eventPublisher.publishEvent(AuditEvent.of(requesterId, AuditAction.REFUND_TRANSACTION, "TRANSACTION", saved.getId(),
+                Map.of("refundedTransactionId", expense.getId().toString())));
+        return saved;
     }
 
     /** Un movimiento de otra persona se trata como inexistente (404), sin confirmar que existe. */

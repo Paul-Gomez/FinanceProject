@@ -19,6 +19,8 @@ import com.fincore.imports.domain.ImportRowResult;
 import com.fincore.imports.domain.ImportRowResult.Status;
 import com.fincore.imports.infrastructure.persistence.ImportJobRepository;
 import com.fincore.imports.infrastructure.persistence.ImportRowRepository;
+import com.fincore.shared.audit.AuditAction;
+import com.fincore.shared.audit.AuditEvent;
 import com.fincore.shared.error.BusinessException;
 import com.fincore.shared.error.ErrorType;
 import com.fincore.shared.money.Money;
@@ -193,6 +195,8 @@ public class ImportService {
 
         eventPublisher.publishEvent(new ImportCompletedEvent(job.getOwnerId(), job.getId(), job.getAccountId(),
                 imported, duplicates, errors));
+        eventPublisher.publishEvent(AuditEvent.of(job.getOwnerId(), AuditAction.IMPORT_TRANSACTIONS, "IMPORT", job.getId(),
+                Map.of("imported", imported, "duplicates", duplicates, "errors", errors)));
         return job;
     }
 

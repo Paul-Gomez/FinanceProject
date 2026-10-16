@@ -6,10 +6,13 @@ import com.fincore.budgets.domain.BudgetStatus;
 import com.fincore.budgets.infrastructure.persistence.BudgetRepository;
 import com.fincore.categories.application.CategoryQueryService;
 import com.fincore.categories.domain.CategoryKind;
+import com.fincore.shared.audit.AuditAction;
+import com.fincore.shared.audit.AuditEvent;
 import com.fincore.shared.money.Money;
 import com.fincore.shared.time.DateRange;
 import com.fincore.transactions.application.CategorySpending;
 import com.fincore.transactions.application.SpendingQueryService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,11 +33,14 @@ public class BudgetService {
     private final CategoryQueryService categoryQueryService;
     private final SpendingQueryService spendingQueryService;
 
+    private final ApplicationEventPublisher eventPublisher;
+
     public BudgetService(BudgetRepository budgetRepository, CategoryQueryService categoryQueryService,
-                         SpendingQueryService spendingQueryService) {
+                         SpendingQueryService spendingQueryService, ApplicationEventPublisher eventPublisher) {
         this.budgetRepository = budgetRepository;
         this.categoryQueryService = categoryQueryService;
         this.spendingQueryService = spendingQueryService;
+        this.eventPublisher = eventPublisher;
     }
 
     public record BudgetView(Budget budget, DateRange period, BudgetStatus status) {
@@ -45,7 +51,9 @@ public class BudgetService {
         categoryQueryService.requireUsable(categoryId, ownerId, CategoryKind.EXPENSE);
         Money limit = Money.ofExact(amount, Money.currencyFor(currencyCode));
         try {
-            return budgetRepository.saveAndFlush(new Budget(ownerId, categoryId, limit, period));
+            Budget budget = budgetRepository.saveAndFlush(new Budget(ownerId, categoryId, limit, period));
+            eventPublisher.publishEvent(AuditEvent.of(ownerId, AuditAction.CREATE_BUDGET, "BUDGET", budget.getId()));
+            return budget;
         } catch (DataIntegrityViolationException e) {
             throw new BudgetAlreadyExistsException();
         }

@@ -1,10 +1,13 @@
 package com.fincore.transactions.application;
 
 import com.fincore.accounts.application.AccountBalanceService;
+import com.fincore.shared.audit.AuditAction;
+import com.fincore.shared.audit.AuditEvent;
 import com.fincore.shared.money.Money;
 import com.fincore.transactions.domain.Transaction;
 import com.fincore.transactions.infrastructure.persistence.TransactionJpaRepository;
 import com.fincore.transactions.infrastructure.web.dto.CreateTransferRequest;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,11 +20,13 @@ public class TransferService {
 
     private final TransactionJpaRepository transactionRepository;
     private final AccountBalanceService accountBalanceService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public TransferService(TransactionJpaRepository transactionRepository,
-                           AccountBalanceService accountBalanceService) {
+                           AccountBalanceService accountBalanceService, ApplicationEventPublisher eventPublisher) {
         this.transactionRepository = transactionRepository;
         this.accountBalanceService = accountBalanceService;
+        this.eventPublisher = eventPublisher;
     }
 
     public record TransferResult(UUID transferId, Transaction outgoing, Transaction incoming) {
@@ -48,6 +53,7 @@ public class TransferService {
         Transaction incoming = Transaction.transferLeg(transferId, request.toAccountId(), amount,
                 request.description(), date, request.reference());
         transactionRepository.saveAll(List.of(outgoing, incoming));
+        eventPublisher.publishEvent(AuditEvent.of(requesterId, AuditAction.CREATE_TRANSFER, "TRANSFER", transferId));
 
         return new TransferResult(transferId, outgoing, incoming);
     }

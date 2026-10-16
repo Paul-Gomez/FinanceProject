@@ -1,8 +1,11 @@
 package com.fincore.users.application;
 
+import com.fincore.shared.audit.AuditAction;
+import com.fincore.shared.audit.AuditEvent;
 import com.fincore.shared.money.Money;
 import com.fincore.users.domain.AppUser;
 import com.fincore.users.infrastructure.persistence.AppUserJpaRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,9 +16,11 @@ import java.util.UUID;
 public class UserService {
 
     private final AppUserJpaRepository userRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public UserService(AppUserJpaRepository userRepository) {
+    public UserService(AppUserJpaRepository userRepository, ApplicationEventPublisher eventPublisher) {
         this.userRepository = userRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional(readOnly = true)
@@ -34,6 +39,7 @@ public class UserService {
         AppUser user = getById(userId);
         String currency = baseCurrency != null ? Money.currencyFor(baseCurrency).getCurrencyCode() : user.getBaseCurrency();
         user.updateProfile(displayName != null ? displayName : user.getDisplayName(), currency);
+        eventPublisher.publishEvent(AuditEvent.of(userId, AuditAction.UPDATE_PROFILE, "USER", userId));
         return user;
     }
 }

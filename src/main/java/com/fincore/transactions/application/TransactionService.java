@@ -6,6 +6,8 @@ import com.fincore.accounts.domain.Account;
 import com.fincore.categories.application.CategoryQueryService;
 import com.fincore.categories.application.CategoryRuleService;
 import com.fincore.categories.domain.CategoryKind;
+import com.fincore.shared.audit.AuditAction;
+import com.fincore.shared.audit.AuditEvent;
 import com.fincore.shared.money.Money;
 import com.fincore.transactions.domain.Transaction;
 import com.fincore.transactions.domain.TransactionType;
@@ -21,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -79,6 +82,8 @@ public class TransactionService {
         Transaction saved = transactionRepository.save(transaction);
         eventPublisher.publishEvent(new TransactionRecordedEvent(saved.getId(), requesterId, saved.getAccountId(),
                 saved.getType(), saved.getCategoryId(), saved.getTransactionDate()));
+        eventPublisher.publishEvent(AuditEvent.of(requesterId, AuditAction.CREATE_TRANSACTION, "TRANSACTION",
+                saved.getId(), Map.of("type", saved.getType().name())));
         return saved;
     }
 
