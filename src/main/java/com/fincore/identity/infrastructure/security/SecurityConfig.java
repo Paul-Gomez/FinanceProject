@@ -33,7 +33,10 @@ public class SecurityConfig {
 
     private static final String[] PUBLIC_DOCS_AND_HEALTH = {
             "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html",
-            "/actuator/health/**", "/actuator/info", "/error"
+            "/actuator/health/**", "/actuator/info", "/error",
+            // Prometheus no sabe mandar un JWT. Solo trae contadores agregados (sin datos de
+            // usuarios); en producción la ruta se deja accesible solo desde la red interna.
+            "/actuator/prometheus"
     };
 
     /**
