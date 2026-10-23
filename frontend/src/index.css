@@ -1,0 +1,43 @@
+@import 'tailwindcss';
+
+/*
+ * Paleta propia de FinCore: fondo crema, tinta casi negra y un verde bosque como
+ * único color de acento. Ingresos y gastos usan verde y granate apagados para que
+ * los importes se distingan sin que la pantalla parezca un semáforo.
+ */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --color-paper: #f6f5f1;
+  --color-surface: #ffffff;
+  --color-line: #e4e2da;
+  --color-ink: #1c1c1a;
+  --color-muted: #6b6a63;
+
+  --color-brand: #1f4d3a;
+  --color-brand-strong: #163a2b;
+  --color-brand-soft: #e6efe9;
+
+  --color-income: #2f7a4f;
+  --color-expense: #a33a3a;
+  --color-warning: #a8670f;
+}
+
+body {
+  @apply bg-paper text-ink antialiased;
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+/* Los importes se alinean por columnas aunque cambien los dígitos. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
