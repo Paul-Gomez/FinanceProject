@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: ${DB_USER:-fincore}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-fincore}
     ports:
-      - "5432:5432"
+      - "${DB_HOST_PORT:-5432}:5432"
     volumes:
       - fincore_postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -28,7 +28,22 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-fincore}
       JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en el fichero .env (al menos 32 caracteres)}
     ports:
-      - "8080:8080"
+      - "${APP_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # La web: nginx sirve la SPA de React y reenvía /api al servicio "app".
+  web:
+    build: ./frontend
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-3000}:80"
 
 volumes:
   fincore_postgres_data:
