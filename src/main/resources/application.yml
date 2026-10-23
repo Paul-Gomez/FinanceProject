@@ -6,6 +6,11 @@ spring:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:fincore}
     username: ${DB_USER:fincore}
     password: ${DB_PASSWORD:fincore}
+    hikari:
+      # Las columnas son TIMESTAMP sin zona: Hibernate las escribe en UTC (jdbc.time_zone),
+      # pero now() de Postgres usa la zona de la sesión, que el driver toma del sistema.
+      # Fuera de UTC (un portátil en Madrid) las dos horas no casaban.
+      connection-init-sql: SET TIME ZONE 'UTC'
 
   jpa:
     open-in-view: false
