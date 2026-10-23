@@ -38,11 +38,35 @@ jobs:
             target/surefire-reports
             target/failsafe-reports
 
-  docker:
-    name: Imagen Docker
+  frontend:
+    name: Frontend (lint, formato, tipos, tests y build)
     runs-on: ubuntu-latest
-    needs: backend
+    defaults:
+      run:
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
-      - name: Build
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+      # "build" ya incluye la comprobación de tipos (tsc --noEmit).
+      - run: npm run build
+
+  docker:
+    name: Imágenes Docker
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Backend
         run: docker build -t fincore:ci .
+      - name: Frontend
+        run: docker build -t fincore-web:ci frontend
