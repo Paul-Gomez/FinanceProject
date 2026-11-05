@@ -1,7 +1,10 @@
 import type { InputHTMLAttributes, Ref, SelectHTMLAttributes } from 'react';
 
+// En pantallas táctiles el texto va a 16 px (por debajo, iOS amplía la página al
+// enfocar el campo) y el control llega a 44 px de alto. El placeholder usa el gris
+// de texto secundario sin transparencia: con ella no llegaba a 4,5:1 sobre blanco.
 const CONTROL =
-  'block w-full rounded-lg border-0 bg-surface px-3 py-2 text-sm text-ink ring-1 ring-inset placeholder:text-muted/70 focus:ring-2 focus:ring-brand focus:outline-none disabled:bg-paper';
+  'block w-full rounded-lg border-0 bg-surface px-3 py-2 text-sm text-ink ring-1 ring-inset placeholder:text-muted focus:ring-2 focus:ring-brand focus:outline-none disabled:bg-paper pointer-coarse:min-h-11 pointer-coarse:text-base';
 
 interface FieldWrapperProps {
   id: string;
