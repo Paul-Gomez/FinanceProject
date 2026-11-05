@@ -1,10 +1,18 @@
 const moneyFormatters = new Map<string, Intl.NumberFormat>();
 
-/** 1234.5 + 'EUR' -> '1.234,50 €'. Cada cuenta puede tener su propia divisa. */
+/**
+ * 1234.5 + 'EUR' -> '1.234,50 €'. Cada cuenta puede tener su propia divisa.
+ * En es-ES, Intl no separa los miles en cifras de cuatro dígitos ('2100,00 €'
+ * junto a '12.345,00 €' en la misma columna): useGrouping 'always' lo iguala.
+ */
 export function formatMoney(amount: number, currency: string): string {
   let formatter = moneyFormatters.get(currency);
   if (!formatter) {
-    formatter = new Intl.NumberFormat('es-ES', { style: 'currency', currency });
+    formatter = new Intl.NumberFormat('es-ES', {
+      style: 'currency',
+      currency,
+      useGrouping: 'always',
+    });
     moneyFormatters.set(currency, formatter);
   }
   return formatter.format(amount);
