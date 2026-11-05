@@ -3,7 +3,7 @@
 Aplicación de finanzas personales con un backend en **Java 21 y Spring Boot** y un frontend en **React**. Permite llevar cuentas, movimientos y transferencias, organizar el gasto por categorías, fijar presupuestos y objetivos de ahorro, controlar suscripciones y facturas, importar extractos en CSV y consultar analíticas.
 
 - **La API** cubre todo lo anterior y está documentada con Swagger.
-- **La web** cubre el uso diario: registro e inicio de sesión, resumen del periodo, cuentas, movimientos (con filtros, transferencias y anulación), presupuestos y categorías. El resto de funciones (objetivos, suscripciones, facturas, importación CSV, analítica detallada) se usan de momento desde la API.
+- **La web** cubre el uso diario: registro e inicio de sesión, resumen del periodo, cuentas, movimientos (con filtros, transferencias, corrección y anulación), presupuestos y categorías. El resto de funciones (objetivos, suscripciones, facturas, importación CSV, analítica detallada) se usan de momento desde la API.
 
 ## Funcionalidades
 
@@ -73,6 +73,8 @@ Los módulos se comunican con **eventos de Spring** cuando un efecto secundario 
 - **Mismo origen.** En desarrollo Vite y en Docker nginx reenvían `/api` al backend, así que el navegador solo habla con un origen y no hace falta abrir CORS.
 - **Renovación del token sin que se note.** Si una petición recibe un 401, se renueva el access token con el refresh token y se repite. Como el backend rota el refresh token (cada uno sirve una vez), varias peticiones que fallan a la vez comparten la misma renovación en lugar de gastar el token dos veces.
 - **Idempotencia también desde la web.** Cada formulario de movimiento o transferencia genera su `Idempotency-Key` al abrirse; si el usuario reintenta tras un fallo de red, el backend no duplica el movimiento.
+- **Corregir sin reescribir el historial.** El backend no edita movimientos, solo los anula. Corregir uno guarda la versión buena como movimiento nuevo y anula el original, que sigue visible como anulado. Si la anulación falla, se puede reintentar sin duplicar nada gracias a la misma `Idempotency-Key`.
+- **Un patrimonio que no se inventa.** Si falta el tipo de cambio de alguna divisa, el resumen muestra el saldo de cada divisa por separado en vez de una suma falsa.
 - **Filtros en la URL.** Los filtros de movimientos se guardan en la dirección (`?accountId=...&page=2`): al recargar o compartir el enlace se ve la misma lista.
 - **Mensajes de error para personas.** Los mensajes de la API están pensados para quien la integra (llevan ids o nombres de estados). El frontend traduce los códigos de error que puede provocar (`ACCOUNT_BALANCE_NOT_ZERO`, `CATEGORY_IN_USE`...) a un texto claro y, si no conoce el código, muestra el mensaje de la API.
 - **Sin librerías de componentes.** Botones, campos, diálogos (con el `<dialog>` nativo) e iconos (SVG propios) están hechos a mano: son pocos y así el bundle queda pequeño.
@@ -138,12 +140,12 @@ Frontend:
 
 ```bash
 cd frontend
-npm test          # tests de lib/: URLs de la API, mensajes de error y formato de importes y fechas
+npm test          # tests de lib/: URLs de la API, mensajes de error, formato y cuentas (destinos de transferencia, totales)
 npm run lint
 npm run build     # incluye la comprobación de tipos
 ```
 
-El frontend tiene pocos tests automáticos: cubren la lógica que no es de pantalla. Los flujos (registro, cuentas, movimientos, transferencias, anulación, presupuestos) se han comprobado a mano en el navegador, en móvil (375 px), tablet (768 px) y escritorio.
+El frontend tiene pocos tests automáticos: cubren la lógica que no es de pantalla. Los flujos (registro, cuentas, movimientos, transferencias, corrección, anulación, presupuestos) se han comprobado a mano en el navegador, en móvil (375 px), tablet (768 px) y escritorio.
 
 ## Integración continua
 
