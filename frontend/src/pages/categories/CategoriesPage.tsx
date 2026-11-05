@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Input, Select } from '../../components/ui/Field';
 import { Modal } from '../../components/ui/Modal';
+import { useNotify } from '../../components/ui/notify';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { ErrorState, LoadingState } from '../../components/ui/States';
 import { errorMessage } from '../../lib/errors';
@@ -30,6 +31,7 @@ function CreateCategoryModal({
   onClose: () => void;
 }) {
   const create = useCreateCategory();
+  const notify = useNotify();
   const {
     register,
     handleSubmit,
@@ -45,7 +47,15 @@ function CreateCategoryModal({
   const parents = categories.filter((c) => c.kind === kind && !c.parentId);
 
   const onSubmit = handleSubmit(({ parentId, ...rest }) =>
-    create.mutate({ ...rest, parentId: parentId || undefined }, { onSuccess: onClose }),
+    create.mutate(
+      { ...rest, parentId: parentId || undefined },
+      {
+        onSuccess: (category) => {
+          notify(`Categoría «${category.name}» creada`);
+          onClose();
+        },
+      },
+    ),
   );
 
   return (
@@ -98,7 +108,7 @@ function CategoryGroup({
   const row = (category: Category, child = false) => (
     <li
       key={category.id}
-      className={`flex items-center justify-between gap-3 py-2 ${child ? 'pl-5' : ''}`}
+      className={`flex min-h-11 items-center justify-between gap-3 py-1 ${child ? 'pl-5' : ''}`}
     >
       <span
         className={`flex min-w-0 items-center gap-2 text-sm ${child ? 'text-muted' : 'font-medium'}`}
@@ -110,11 +120,9 @@ function CategoryGroup({
         />
         <span className="truncate">{category.name}</span>
       </span>
-      {category.system ? (
-        <span className="text-xs text-muted">Del sistema</span>
-      ) : (
+      {!category.system && (
         <Button
-          variant="ghost"
+          variant="danger-ghost"
           aria-label={`Eliminar la categoría ${category.name}`}
           onClick={() => onDelete(category)}
         >
@@ -144,6 +152,7 @@ function CategoryGroup({
 export default function CategoriesPage() {
   const { data: categories, isPending, isError, error, refetch } = useCategories();
   const deleteCategory = useDeleteCategory();
+  const notify = useNotify();
   const [creating, setCreating] = useState(false);
   const [toDelete, setToDelete] = useState<Category | null>(null);
 
@@ -156,7 +165,7 @@ export default function CategoriesPage() {
     <>
       <PageHeader
         title="Categorías"
-        description="Las del sistema sirven para empezar; puedes añadir las tuyas y subcategorías."
+        description="Las del sistema sirven para empezar y no se pueden eliminar. Puedes añadir las tuyas y subcategorías."
         actions={<Button onClick={() => setCreating(true)}>Nueva categoría</Button>}
       />
 
@@ -184,7 +193,12 @@ export default function CategoriesPage() {
           error={deleteCategory.isError ? errorMessage(deleteCategory.error) : null}
           onCancel={() => setToDelete(null)}
           onConfirm={() =>
-            deleteCategory.mutate(toDelete.id, { onSuccess: () => setToDelete(null) })
+            deleteCategory.mutate(toDelete.id, {
+              onSuccess: () => {
+                notify(`Categoría «${toDelete.name}» eliminada`);
+                setToDelete(null);
+              },
+            })
           }
         />
       )}

@@ -10,6 +10,7 @@ import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Input, Select } from '../../components/ui/Field';
 import { Modal } from '../../components/ui/Modal';
+import { useNotify } from '../../components/ui/notify';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/States';
@@ -39,6 +40,7 @@ function CreateBudgetModal({
 }) {
   const { user } = useAuth();
   const create = useCreateBudget();
+  const notify = useNotify();
   const {
     register,
     handleSubmit,
@@ -54,7 +56,15 @@ function CreateBudgetModal({
   });
 
   const onSubmit = handleSubmit((values) =>
-    create.mutate({ ...values, amount: values.amount.replace(',', '.') }, { onSuccess: onClose }),
+    create.mutate(
+      { ...values, amount: values.amount.replace(',', '.') },
+      {
+        onSuccess: () => {
+          notify('Presupuesto creado');
+          onClose();
+        },
+      },
+    ),
   );
 
   return (
@@ -137,7 +147,7 @@ function BudgetItem({
           </p>
         </div>
         <Button
-          variant="ghost"
+          variant="danger-ghost"
           aria-label={`Eliminar el presupuesto de ${name}`}
           onClick={onDelete}
         >
@@ -165,6 +175,7 @@ export default function BudgetsPage() {
   const { data: budgets, isPending, isError, error, refetch } = useBudgets();
   const { data: categories = [] } = useCategories();
   const deleteBudget = useDeleteBudget();
+  const notify = useNotify();
   const [creating, setCreating] = useState(false);
   const [toDelete, setToDelete] = useState<{ budget: Budget; name: string } | null>(null);
 
@@ -219,7 +230,12 @@ export default function BudgetsPage() {
           error={deleteBudget.isError ? errorMessage(deleteBudget.error) : null}
           onCancel={() => setToDelete(null)}
           onConfirm={() =>
-            deleteBudget.mutate(toDelete.budget.id, { onSuccess: () => setToDelete(null) })
+            deleteBudget.mutate(toDelete.budget.id, {
+              onSuccess: () => {
+                notify('Presupuesto eliminado');
+                setToDelete(null);
+              },
+            })
           }
         />
       )}

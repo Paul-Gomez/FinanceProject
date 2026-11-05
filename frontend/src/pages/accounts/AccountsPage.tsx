@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { Link } from 'react-router-dom';
 import { z } from 'zod';
 
 import {
@@ -15,9 +16,12 @@ import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Input, Select } from '../../components/ui/Field';
 import { Modal } from '../../components/ui/Modal';
+import { useNotify } from '../../components/ui/notify';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/States';
+import { totalsByCurrency } from '../../lib/accounts';
 import { errorMessage } from '../../lib/errors';
+import { formatMoney } from '../../lib/format';
 import { ACCOUNT_STATUS_LABELS, ACCOUNT_TYPE_LABELS, CURRENCIES } from '../../lib/labels';
 import type { Account, AccountStatus, AccountType } from '../../types/api';
 
@@ -39,6 +43,7 @@ type CreateValues = z.infer<typeof createSchema>;
 
 function CreateAccountModal({ onClose }: { onClose: () => void }) {
   const createAccount = useCreateAccount();
+  const notify = useNotify();
   const {
     register,
     handleSubmit,
@@ -51,7 +56,12 @@ function CreateAccountModal({ onClose }: { onClose: () => void }) {
   const onSubmit = handleSubmit(({ initialBalance, ...rest }) =>
     createAccount.mutate(
       { ...rest, initialBalance: initialBalance ? initialBalance.replace(',', '.') : undefined },
-      { onSuccess: onClose },
+      {
+        onSuccess: (account) => {
+          notify(`Cuenta «${account.name}» creada`);
+          onClose();
+        },
+      },
     ),
   );
 
@@ -105,6 +115,7 @@ const renameSchema = z.object({ name: z.string().trim().min(1, 'Ponle un nombre'
 
 function RenameAccountModal({ account, onClose }: { account: Account; onClose: () => void }) {
   const rename = useRenameAccount();
+  const notify = useNotify();
   const {
     register,
     handleSubmit,
@@ -115,7 +126,15 @@ function RenameAccountModal({ account, onClose }: { account: Account; onClose: (
   });
 
   const onSubmit = handleSubmit(({ name }) =>
-    rename.mutate({ id: account.id, name }, { onSuccess: onClose }),
+    rename.mutate(
+      { id: account.id, name },
+      {
+        onSuccess: () => {
+          notify('Cuenta renombrada');
+          onClose();
+        },
+      },
+    ),
   );
 
   return (
@@ -140,13 +159,19 @@ function RenameAccountModal({ account, onClose }: { account: Account; onClose: (
 const STATUS_ACTIONS: Record<AccountStatus, { to: AccountStatus; label: string }[]> = {
   ACTIVE: [
     { to: 'ARCHIVED', label: 'Archivar' },
-    { to: 'CLOSED', label: 'Cerrar' },
+    { to: 'CLOSED', label: 'Cerrar cuenta' },
   ],
   ARCHIVED: [
     { to: 'ACTIVE', label: 'Reactivar' },
-    { to: 'CLOSED', label: 'Cerrar' },
+    { to: 'CLOSED', label: 'Cerrar cuenta' },
   ],
   CLOSED: [],
+};
+
+const STATUS_DONE: Record<AccountStatus, string> = {
+  ACTIVE: 'reactivada',
+  ARCHIVED: 'archivada',
+  CLOSED: 'cerrada',
 };
 
 const STATUS_CONFIRM: Partial<Record<AccountStatus, string>> = {
@@ -168,7 +193,13 @@ function AccountRow({
   return (
     <li className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-4">
       <div className="min-w-0">
-        <p className={`truncate font-medium ${inactive ? 'text-muted' : ''}`}>{account.name}</p>
+        <Link
+          to={`/transactions?accountId=${account.id}`}
+          aria-label={`${account.name}: ver sus movimientos`}
+          className={`block truncate rounded font-medium underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${inactive ? 'text-muted' : ''}`}
+        >
+          {account.name}
+        </Link>
         <p className="text-sm text-muted">
           {ACCOUNT_TYPE_LABELS[account.type]} · {account.currencyCode}
           {inactive && ` · ${ACCOUNT_STATUS_LABELS[account.status]}`}
@@ -186,7 +217,11 @@ function AccountRow({
               Renombrar
             </Button>
             {STATUS_ACTIONS[account.status].map((action) => (
-              <Button key={action.to} variant="ghost" onClick={() => onStatus(action.to)}>
+              <Button
+                key={action.to}
+                variant={action.to === 'CLOSED' ? 'danger-ghost' : 'ghost'}
+                onClick={() => onStatus(action.to)}
+              >
                 {action.label}
               </Button>
             ))}
@@ -200,26 +235,57 @@ function AccountRow({
 export default function AccountsPage() {
   const { data: accounts, isPending, isError, error, refetch } = useAccounts();
   const changeStatus = useChangeAccountStatus();
+  const notify = useNotify();
   const [creating, setCreating] = useState(false);
   const [renaming, setRenaming] = useState<Account | null>(null);
   const [statusChange, setStatusChange] = useState<{ account: Account; to: AccountStatus } | null>(
     null,
   );
 
+  const applyStatus = (account: Account, to: AccountStatus, onDone?: () => void) =>
+    changeStatus.mutate(
+      { id: account.id, status: to },
+      {
+        onSuccess: () => {
+          notify(`Cuenta «${account.name}» ${STATUS_DONE[to]}`);
+          onDone?.();
+        },
+      },
+    );
+
   const requestStatus = (account: Account, to: AccountStatus) => {
     // Reactivar no necesita confirmación: se deshace archivando otra vez.
-    if (to === 'ACTIVE') changeStatus.mutate({ id: account.id, status: to });
+    if (to === 'ACTIVE') applyStatus(account, to);
     else {
       changeStatus.reset();
       setStatusChange({ account, to });
     }
   };
 
+  const totals = accounts ? totalsByCurrency(accounts) : [];
+
   return (
     <>
       <PageHeader
         title="Cuentas"
-        description="Bancos, tarjetas, efectivo y ahorro. El saldo se calcula a partir de los movimientos."
+        description={
+          totals.length > 0 ? (
+            <>
+              En total{' '}
+              {totals.map((t, i) => (
+                <span key={t.currency}>
+                  {i > 0 && ' y '}
+                  <span className="tabular font-medium text-ink">
+                    {formatMoney(t.total, t.currency)}
+                  </span>
+                </span>
+              ))}
+              , sin contar las cerradas. Cada saldo sale de sus movimientos.
+            </>
+          ) : (
+            'Bancos, tarjetas, efectivo y ahorro. El saldo se calcula a partir de los movimientos.'
+          )
+        }
         actions={<Button onClick={() => setCreating(true)}>Nueva cuenta</Button>}
       />
 
@@ -256,10 +322,7 @@ export default function AccountsPage() {
           error={changeStatus.isError ? errorMessage(changeStatus.error) : null}
           onCancel={() => setStatusChange(null)}
           onConfirm={() =>
-            changeStatus.mutate(
-              { id: statusChange.account.id, status: statusChange.to },
-              { onSuccess: () => setStatusChange(null) },
-            )
+            applyStatus(statusChange.account, statusChange.to, () => setStatusChange(null))
           }
         />
       )}
