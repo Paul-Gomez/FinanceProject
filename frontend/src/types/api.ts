@@ -105,7 +105,8 @@ export interface Dashboard {
   to: string;
   currency: string;
   balances: { currency: string; total: number; accounts: number }[];
-  totalBalance: { currency: string; amount: number; missingRates: string[] };
+  /** amount es null si alguna divisa no tiene tipo de cambio: no se puede sumar. */
+  totalBalance: { currency: string; amount: number | null; missingRates: string[] };
   income: number;
   expenses: number;
   savings: number;

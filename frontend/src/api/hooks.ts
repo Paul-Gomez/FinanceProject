@@ -47,6 +47,9 @@ export function useDashboard(period: PeriodType) {
   return useQuery({
     queryKey: [...keys.dashboard, period],
     queryFn: () => api<Dashboard>('/api/v1/dashboard', { query: { period } }),
+    // Al cambiar de periodo se sigue viendo el anterior, atenuado, en vez de que
+    // la página entera salte a "Cargando…".
+    placeholderData: keepPreviousData,
   });
 }
 
