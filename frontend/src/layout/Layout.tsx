@@ -52,7 +52,7 @@ export function Layout() {
           to={to}
           end={to === '/'}
           className={({ isActive }) =>
-            `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+            `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-brand pointer-coarse:py-3 ${
               isActive
                 ? 'bg-brand-soft font-medium text-brand-strong'
                 : 'text-muted hover:bg-black/5 hover:text-ink'
@@ -123,7 +123,11 @@ export function Layout() {
         )}
       </header>
 
-      <main id="main" className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
+      {/* En el móvil, el espacio de abajo deja sitio a la barra de acciones de PageHeader. */}
+      <main
+        id="main"
+        className="mx-auto w-full max-w-6xl px-4 pt-6 pb-28 sm:px-6 sm:pb-6 lg:px-10 lg:py-10"
+      >
         <Outlet />
       </main>
     </div>

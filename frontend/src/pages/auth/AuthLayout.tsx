@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import { usePageTitle } from '../../components/ui/page-title';
+
 /** Marco común de login y registro: una columna centrada, sin la navegación de la app. */
 export function AuthLayout({
   title,
@@ -10,6 +12,7 @@ export function AuthLayout({
   subtitle: string;
   children: ReactNode;
 }) {
+  usePageTitle(title);
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
