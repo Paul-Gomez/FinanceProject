@@ -1,12 +1,19 @@
 @import 'tailwindcss';
+/* Solo el eje de peso: es la única variación que usa la interfaz. Se sirve desde el
+ * propio proyecto, sin pedir nada a terceros. */
+@import '@fontsource-variable/ibm-plex-sans/wght.css';
 
 /*
  * Paleta propia de FinCore: fondo crema, tinta casi negra y un verde bosque como
  * único color de acento. Ingresos y gastos usan verde y granate apagados para que
  * los importes se distingan sin que la pantalla parezca un semáforo.
+ *
+ * IBM Plex Sans: sobria, con cifras de ancho fijo bien dibujadas, que es lo que
+ * más se lee en una aplicación de dinero.
  */
 @theme {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans:
+    'IBM Plex Sans Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   --color-paper: #f6f5f1;
   --color-surface: #ffffff;
@@ -23,21 +30,26 @@
   --color-warning: #a8670f;
 }
 
+html {
+  accent-color: var(--color-brand);
+  caret-color: var(--color-brand);
+}
+
 body {
   @apply bg-paper text-ink antialiased;
-  font-feature-settings: 'cv11', 'ss01';
+}
+
+::selection {
+  background-color: var(--color-brand-soft);
+  color: var(--color-brand-strong);
+}
+
+h1,
+h2 {
+  text-wrap: balance;
 }
 
 /* Los importes se alinean por columnas aunque cambien los dígitos. */
 .tabular {
   font-variant-numeric: tabular-nums;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
 }
