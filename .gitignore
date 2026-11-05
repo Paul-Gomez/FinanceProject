@@ -6,3 +6,8 @@ target/
 *.iml
 .vscode/
 .DS_Store
+
+# Configuración local de Claude Code (incluye permisos personales) e Impeccable:
+# su caché, el modo live y los informes de los repasos
+.claude/
+.impeccable/
